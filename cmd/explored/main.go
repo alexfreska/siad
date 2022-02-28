@@ -85,7 +85,7 @@ func main() {
 	}
 	log.Println("api: Listening on", l.Addr())
 	go func() {
-		api := explored.NewServer(n.c, n.s, n.tp)
+		api := explored.NewServer(n.c, n.s, n.tp, n.e)
 		if err := http.Serve(l, api); err != nil {
 			log.Println(err)
 		}

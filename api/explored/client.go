@@ -40,6 +40,36 @@ func (c *Client) ConsensusTip() (resp ConsensusTipResponse, err error) {
 	return
 }
 
+// SiacoinElement gets the Siacoin element with the given ID.
+func (c *Client) SiacoinElement(id types.ElementID) (resp SiacoinElementResponse, err error) {
+	err = c.c.Post("/api/explorer/element/siacoin", ElementRequest{id}, &resp)
+	return
+}
+
+// SiafundElement gets the Siafund element with the given ID.
+func (c *Client) SiafundElement(id types.ElementID) (resp SiafundElementResponse, err error) {
+	err = c.c.Post("/api/explorer/element/siafund", ElementRequest{id}, &resp)
+	return
+}
+
+// FileContractElement gets the file contract element with the given ID.
+func (c *Client) FileContractElement(id types.ElementID) (resp FileContractElementResponse, err error) {
+	err = c.c.Post("/api/explorer/element/contract", ElementRequest{id}, &resp)
+	return
+}
+
+// BlockFacts gets facts about the block at the given height.
+func (c *Client) BlockFacts(height uint64) (resp BlockFactsResponse, err error) {
+	err = c.c.Post("/api/explorer/block/facts", BlockFactsRequest{height}, &resp)
+	return
+}
+
+// BlockFactsLatest gets facts about the latest block.
+func (c *Client) BlockFactsLatest() (resp BlockFactsResponse, err error) {
+	err = c.c.Get("/api/explorer/block/facts/latest", &resp)
+	return
+}
+
 // NewClient returns a client that communicates with a explored server listening on
 // the specified address.
 func NewClient(addr, password string) *Client {

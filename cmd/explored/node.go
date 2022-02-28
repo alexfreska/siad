@@ -6,6 +6,7 @@ import (
 
 	"go.sia.tech/core/chain"
 	"go.sia.tech/core/consensus"
+	"go.sia.tech/siad/v2/explorer"
 	"go.sia.tech/siad/v2/internal/chainutil"
 	"go.sia.tech/siad/v2/internal/p2putil"
 	"go.sia.tech/siad/v2/p2p"
@@ -15,6 +16,7 @@ import (
 type node struct {
 	c  *chain.Manager
 	tp *txpool.Pool
+	e  *explorer.Explorer
 	s  *p2p.Syncer
 }
 
@@ -48,6 +50,8 @@ func newNode(addr, dir string, c consensus.Checkpoint) (*node, error) {
 	cm := chain.NewManager(chainStore, tip.Context)
 	tp := txpool.New(tip.Context)
 	cm.AddSubscriber(tp, cm.Tip())
+	e := explorer.New(tip.Context, nil)
+	cm.AddSubscriber(e, cm.Tip())
 
 	p2pDir := filepath.Join(dir, "p2p")
 	if err := os.MkdirAll(p2pDir, 0700); err != nil {
@@ -65,6 +69,7 @@ func newNode(addr, dir string, c consensus.Checkpoint) (*node, error) {
 	return &node{
 		c:  cm,
 		tp: tp,
+		e:  e,
 		s:  s,
 	}, nil
 }

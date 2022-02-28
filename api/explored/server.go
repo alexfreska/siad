@@ -8,6 +8,7 @@ import (
 	"go.sia.tech/core/consensus"
 	"go.sia.tech/core/types"
 	"go.sia.tech/siad/v2/api"
+	"go.sia.tech/siad/v2/explorer"
 )
 
 type (
@@ -29,10 +30,21 @@ type (
 	ChainManager interface {
 		TipContext() consensus.ValidationContext
 	}
+
+	// An Explorer contains a database storing information about blocks, outputs,
+	// contracts.
+	Explorer interface {
+		SiacoinElement(id types.ElementID) (types.SiacoinElement, bool)
+		SiafundElement(id types.ElementID) (types.SiafundElement, bool)
+		FileContractElement(id types.ElementID) (types.FileContractElement, bool)
+		BlockFacts(height uint64) (explorer.BlockFacts, bool)
+		LatestBlockFacts() (explorer.BlockFacts, bool)
+	}
 )
 
 type server struct {
 	s  Syncer
+	e  Explorer
 	cm ChainManager
 	tp TransactionPool
 }
@@ -97,12 +109,82 @@ func (s *server) consensusTipHandler(w http.ResponseWriter, req *http.Request, _
 	})
 }
 
+func (s *server) explorerElementSiacoinHandler(w http.ResponseWriter, req *http.Request, _ httprouter.Params) {
+	var er ElementRequest
+	if err := json.NewDecoder(req.Body).Decode(&er); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	elem, ok := s.e.SiacoinElement(er.ID)
+	if !ok {
+		http.Error(w, "no such element", http.StatusBadRequest)
+		return
+	}
+	api.WriteJSON(w, elem)
+}
+
+func (s *server) explorerElementSiafundHandler(w http.ResponseWriter, req *http.Request, _ httprouter.Params) {
+	var er ElementRequest
+	if err := json.NewDecoder(req.Body).Decode(&er); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	elem, ok := s.e.SiafundElement(er.ID)
+	if !ok {
+		http.Error(w, "no such element", http.StatusBadRequest)
+		return
+	}
+	api.WriteJSON(w, elem)
+}
+
+func (s *server) explorerElementContractHandler(w http.ResponseWriter, req *http.Request, _ httprouter.Params) {
+	var er ElementRequest
+	if err := json.NewDecoder(req.Body).Decode(&er); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	elem, ok := s.e.FileContractElement(er.ID)
+	if !ok {
+		http.Error(w, "no such element", http.StatusBadRequest)
+		return
+	}
+	api.WriteJSON(w, elem)
+}
+
+func (s *server) explorerBlockFactsHandler(w http.ResponseWriter, req *http.Request, _ httprouter.Params) {
+	var bfr BlockFactsRequest
+	if err := json.NewDecoder(req.Body).Decode(&bfr); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	facts, ok := s.e.BlockFacts(bfr.Height)
+	if !ok {
+		http.Error(w, "no block facts for that height", http.StatusBadRequest)
+		return
+	}
+	api.WriteJSON(w, facts)
+}
+
+func (s *server) explorerBlockFactsLatestHandler(w http.ResponseWriter, req *http.Request, _ httprouter.Params) {
+	facts, ok := s.e.LatestBlockFacts()
+	if !ok {
+		http.Error(w, "no block facts for that height", http.StatusInternalServerError)
+		return
+	}
+	api.WriteJSON(w, facts)
+}
+
 // NewServer returns an HTTP handler that serves the explored API.
-func NewServer(cm ChainManager, s Syncer, tp TransactionPool) http.Handler {
+func NewServer(cm ChainManager, s Syncer, tp TransactionPool, e Explorer) http.Handler {
 	srv := server{
 		cm: cm,
 		s:  s,
 		tp: tp,
+		e:  e,
 	}
 	mux := httprouter.New()
 
@@ -113,6 +195,12 @@ func NewServer(cm ChainManager, s Syncer, tp TransactionPool) http.Handler {
 	mux.POST("/api/syncer/connect", srv.syncerConnectHandler)
 
 	mux.GET("/api/consensus/tip", srv.consensusTipHandler)
+
+	mux.POST("/api/explorer/element/siacoin", srv.explorerElementSiacoinHandler)
+	mux.POST("/api/explorer/element/siafund", srv.explorerElementSiafundHandler)
+	mux.POST("/api/explorer/element/contract", srv.explorerElementContractHandler)
+	mux.POST("/api/explorer/block/facts", srv.explorerBlockFactsHandler)
+	mux.GET("/api/explorer/block/facts/latest", srv.explorerBlockFactsLatestHandler)
 
 	return mux
 }

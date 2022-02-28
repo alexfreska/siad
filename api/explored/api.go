@@ -4,6 +4,7 @@ import (
 	"time"
 
 	"go.sia.tech/core/types"
+	"go.sia.tech/siad/v2/explorer"
 )
 
 // TxpoolBroadcastRequest is the request for the /txpool/broadcast endpoint.
@@ -36,3 +37,25 @@ type ConsensusTipResponse struct {
 	SiafundPool       types.Currency
 	FoundationAddress types.Address
 }
+
+// An ElementRequest contains the ID of the element we are querying
+type ElementRequest struct {
+	ID types.ElementID `json:"id"`
+}
+
+// An SiacoinElementResponse contains a Siacoin element
+type SiacoinElementResponse types.SiacoinElement
+
+// An SiafundElementResponse contains a Siafund element
+type SiafundElementResponse types.SiafundElement
+
+// An FileContractElementResponse contains a Siafund element
+type FileContractElementResponse types.FileContractElement
+
+// A BlockFactsRequest contains the height we are querying facts about.
+type BlockFactsRequest struct {
+	Height uint64 `json:"height"`
+}
+
+// A BlockFactsResponse contains facts about a block..
+type BlockFactsResponse explorer.BlockFacts
