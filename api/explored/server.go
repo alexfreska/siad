@@ -167,7 +167,6 @@ func (s *server) explorerChainStatsHandler(w http.ResponseWriter, req *http.Requ
 		return
 	}
 	api.WriteJSON(w, facts)
-
 }
 
 func (s *server) explorerChainStatsLatestHandler(w http.ResponseWriter, req *http.Request, _ httprouter.Params) {
