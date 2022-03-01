@@ -38,11 +38,6 @@ type ConsensusTipResponse struct {
 	FoundationAddress types.Address
 }
 
-// An ElementRequest contains the ID of the element we are querying
-type ElementRequest struct {
-	ID types.ElementID `json:"id"`
-}
-
 // An SiacoinElementResponse contains a Siacoin element
 type SiacoinElementResponse types.SiacoinElement
 
@@ -52,10 +47,5 @@ type SiafundElementResponse types.SiafundElement
 // An FileContractElementResponse contains a Siafund element
 type FileContractElementResponse types.FileContractElement
 
-// A BlockFactsRequest contains the height we are querying facts about.
-type BlockFactsRequest struct {
-	Height uint64 `json:"height"`
-}
-
-// A BlockFactsResponse contains facts about a block..
-type BlockFactsResponse explorer.BlockFacts
+// A ChainStatsResponse contains stats about a block.
+type ChainStatsResponse explorer.ChainStats

@@ -1,22 +1,15 @@
 package explorer
 
 import (
-	"time"
-
+	"go.sia.tech/core/consensus"
 	"go.sia.tech/core/types"
 )
 
-// BlockFacts returns a bunch of statistics about the consensus set as they
+// ChainStats contains a bunch of statistics about the consensus set as they
 // were at a specific block.
-type BlockFacts struct {
-	Index             types.ChainIndex
-	TotalWork         types.Work
-	Difficulty        types.Work
-	OakWork           types.Work
-	OakTime           time.Duration
-	GenesisTimestamp  time.Time
-	SiafundPool       types.Currency
-	FoundationAddress types.Address
+type ChainStats struct {
+	Block             types.Block
+	ValidationContext consensus.ValidationContext
 
 	// Transaction type counts.
 	SpentSiacoinsCount         uint64
@@ -36,47 +29,47 @@ type BlockFacts struct {
 	TotalRevisionVolume uint64
 }
 
-// LatestBlockFacts returns facts about the latest black.
-func (e *Explorer) LatestBlockFacts() (BlockFacts, bool) {
-	height, err := e.db.BlockHeight()
+// ChainStatsLatest returns stats about the latest black.
+func (e *Explorer) ChainStatsLatest() (ChainStats, error) {
+	index, err := e.db.BlockIndex()
 	if err != nil {
-		return BlockFacts{}, false
+		return ChainStats{}, err
 	}
-	return e.BlockFacts(height)
+	return e.ChainStats(index)
 }
 
-// BlockFacts returns facts about the black at the the specified height.
-func (e *Explorer) BlockFacts(height uint64) (BlockFacts, bool) {
-	facts, err := e.db.BlockFacts(height)
+// ChainStats returns stats about the black at the the specified height.
+func (e *Explorer) ChainStats(index types.ChainIndex) (ChainStats, error) {
+	stats, err := e.db.ChainStats(index)
 	if err != nil {
-		return BlockFacts{}, false
+		return ChainStats{}, err
 	}
-	return facts, true
+	return stats, nil
 }
 
 // SiacoinElement returns the siacoin element associated with the specified ID.
-func (e *Explorer) SiacoinElement(id types.ElementID) (types.SiacoinElement, bool) {
+func (e *Explorer) SiacoinElement(id types.ElementID) (types.SiacoinElement, error) {
 	sce, err := e.db.SiacoinElement(id)
 	if err != nil {
-		return types.SiacoinElement{}, false
+		return types.SiacoinElement{}, err
 	}
-	return sce, true
+	return sce, nil
 }
 
 // SiafundElement returns the siafund element associated with the specified ID.
-func (e *Explorer) SiafundElement(id types.ElementID) (types.SiafundElement, bool) {
+func (e *Explorer) SiafundElement(id types.ElementID) (types.SiafundElement, error) {
 	sfe, err := e.db.SiafundElement(id)
 	if err != nil {
-		return types.SiafundElement{}, false
+		return types.SiafundElement{}, err
 	}
-	return sfe, true
+	return sfe, nil
 }
 
 // FileContractElement returns the file contract element associated with the specified ID.
-func (e *Explorer) FileContractElement(id types.ElementID) (types.FileContractElement, bool) {
+func (e *Explorer) FileContractElement(id types.ElementID) (types.FileContractElement, error) {
 	fce, err := e.db.FileContractElement(id)
 	if err != nil {
-		return types.FileContractElement{}, false
+		return types.FileContractElement{}, err
 	}
-	return fce, true
+	return fce, nil
 }

@@ -18,19 +18,19 @@ type Store interface {
 	SiacoinElement(id types.ElementID) (types.SiacoinElement, error)
 	SiafundElement(id types.ElementID) (types.SiafundElement, error)
 	FileContractElement(id types.ElementID) (types.FileContractElement, error)
-	BlockFacts(height uint64) (BlockFacts, error)
-	AddBlockFacts(height uint64, facts BlockFacts) error
-	RemoveBlockFacts(height uint64) error
-	BlockHeight() (uint64, error)
-	SetBlockHeight(height uint64) error
+	ChainStats(index types.ChainIndex) (ChainStats, error)
+	AddChainStats(index types.ChainIndex, stats ChainStats) error
+	BlockIndex() (types.ChainIndex, error)
+	SetBlockIndex(index types.ChainIndex) error
 }
 
 // An Explorer contains a database storing information about blocks, outputs,
 // contracts.
 type Explorer struct {
-	db Store
-	mu sync.Mutex
-	vc consensus.ValidationContext
+	db       Store
+	mu       sync.Mutex
+	tipStats ChainStats
+	vc       consensus.ValidationContext
 }
 
 // ProcessChainApplyUpdate implements chain.Subscriber.
@@ -38,91 +38,80 @@ func (e *Explorer) ProcessChainApplyUpdate(cau *chain.ApplyUpdate, _ bool) error
 	e.mu.Lock()
 	defer e.mu.Unlock()
 
-	oldFacts, err := e.db.BlockFacts(e.vc.Index.Height)
-	if err != nil {
-		return err
-	}
-
-	facts := BlockFacts{
-		Index:               cau.Context.Index,
-		TotalWork:           cau.Context.TotalWork,
-		Difficulty:          cau.Context.Difficulty,
-		OakWork:             cau.Context.OakWork,
-		OakTime:             cau.Context.OakTime,
-		GenesisTimestamp:    cau.Context.GenesisTimestamp,
-		SiafundPool:         cau.Context.SiafundPool,
-		FoundationAddress:   cau.Context.FoundationAddress,
-		ActiveContractCost:  oldFacts.ActiveContractCost,
-		ActiveContractCount: oldFacts.ActiveContractCount,
-		ActiveContractSize:  oldFacts.ActiveContractSize,
-		TotalContractCost:   oldFacts.TotalContractCost,
-		TotalContractSize:   oldFacts.TotalContractSize,
-		TotalRevisionVolume: oldFacts.TotalRevisionVolume,
+	stats := ChainStats{
+		Block:               cau.Block,
+		ValidationContext:   cau.Context,
+		ActiveContractCost:  e.tipStats.ActiveContractCost,
+		ActiveContractCount: e.tipStats.ActiveContractCount,
+		ActiveContractSize:  e.tipStats.ActiveContractSize,
+		TotalContractCost:   e.tipStats.TotalContractCost,
+		TotalContractSize:   e.tipStats.TotalContractSize,
+		TotalRevisionVolume: e.tipStats.TotalRevisionVolume,
 	}
 
 	for _, elem := range cau.SpentSiacoins {
 		if err := e.db.RemoveElement(elem.ID); err != nil {
 			return err
 		}
-		facts.SpentSiacoinsCount++
+		stats.SpentSiacoinsCount++
 	}
 	for _, elem := range cau.SpentSiafunds {
 		if err := e.db.RemoveElement(elem.ID); err != nil {
 			return err
 		}
-		facts.SpentSiafundsCount++
+		stats.SpentSiafundsCount++
 	}
 	for _, elem := range cau.ResolvedFileContracts {
 		if err := e.db.RemoveElement(elem.ID); err != nil {
 			return err
 		}
-		facts.ResolvedFileContractsCount++
-		facts.ActiveContractCount--
+		stats.ResolvedFileContractsCount++
+		stats.ActiveContractCount--
 		payout := elem.FileContract.MissedHostValue.Add(elem.FileContract.TotalCollateral)
-		facts.ActiveContractCost = facts.ActiveContractCost.Sub(payout)
-		facts.ActiveContractSize -= elem.FileContract.Filesize
+		stats.ActiveContractCost = stats.ActiveContractCost.Sub(payout)
+		stats.ActiveContractSize -= elem.FileContract.Filesize
 	}
 
 	for _, elem := range cau.NewSiacoinElements {
 		if err := e.db.AddSiacoinElement(elem); err != nil {
 			return err
 		}
-		facts.NewSiacoinsCount++
+		stats.NewSiacoinsCount++
 	}
 	for _, elem := range cau.NewSiafundElements {
 		if err := e.db.AddSiafundElement(elem); err != nil {
 			return err
 		}
-		facts.NewSiafundsCount++
+		stats.NewSiafundsCount++
 	}
 	for _, elem := range cau.RevisedFileContracts {
 		if err := e.db.AddFileContractElement(elem); err != nil {
 			return err
 		}
-		facts.RevisedFileContractsCount++
-		facts.TotalContractSize += elem.FileContract.Filesize
-		facts.TotalRevisionVolume += elem.FileContract.Filesize
+		stats.RevisedFileContractsCount++
+		stats.TotalContractSize += elem.FileContract.Filesize
+		stats.TotalRevisionVolume += elem.FileContract.Filesize
 	}
 	for _, elem := range cau.NewFileContracts {
 		if err := e.db.AddFileContractElement(elem); err != nil {
 			return err
 		}
-		facts.NewFileContractsCount++
+		stats.NewFileContractsCount++
 		payout := elem.FileContract.MissedHostValue.Add(elem.FileContract.TotalCollateral)
-		facts.ActiveContractCost = facts.ActiveContractCost.Add(payout)
-		facts.ActiveContractSize += elem.FileContract.Filesize
-		facts.TotalContractCost = facts.TotalContractCost.Add(payout)
-		facts.TotalContractSize += elem.FileContract.Filesize
+		stats.ActiveContractCost = stats.ActiveContractCost.Add(payout)
+		stats.ActiveContractSize += elem.FileContract.Filesize
+		stats.TotalContractCost = stats.TotalContractCost.Add(payout)
+		stats.TotalContractSize += elem.FileContract.Filesize
 	}
 
-	if err := e.db.AddBlockFacts(facts.Index.Height, facts); err != nil {
+	if err := e.db.AddChainStats(stats.ValidationContext.Index, stats); err != nil {
 		return err
 	}
-	if err := e.db.SetBlockHeight(facts.Index.Height); err != nil {
+	if err := e.db.SetBlockIndex(stats.ValidationContext.Index); err != nil {
 		return err
 	}
 
-	e.vc = cau.Context
+	e.vc, e.tipStats = cau.Context, stats
 	return nil
 }
 
@@ -162,21 +151,29 @@ func (e *Explorer) ProcessChainRevertUpdate(cru *chain.RevertUpdate) error {
 			return err
 		}
 	}
+	for _, txn := range cru.Block.Transactions {
+		for _, rev := range txn.FileContractRevisions {
+			if err := e.db.AddFileContractElement(rev.Parent); err != nil {
+				return err
+			}
+		}
+	}
 	for _, elem := range cru.NewFileContracts {
 		if err := e.db.RemoveElement(elem.ID); err != nil {
 			return err
 		}
 	}
 
-	if err := e.db.RemoveBlockFacts(e.vc.Index.Height); err != nil {
+	if err := e.db.SetBlockIndex(cru.Context.Index); err != nil {
 		return err
 	}
-	if err := e.db.SetBlockHeight(cru.Context.Index.Height); err != nil {
+	oldStats, err := e.db.ChainStats(cru.Context.Index)
+	if err != nil {
 		return err
 	}
 
 	// update validation context
-	e.vc = cru.Context
+	e.vc, e.tipStats = cru.Context, oldStats
 	return nil
 }
 

@@ -1,6 +1,9 @@
 package explored
 
 import (
+	"encoding/json"
+	"fmt"
+
 	"go.sia.tech/core/types"
 	"go.sia.tech/siad/v2/api"
 )
@@ -42,31 +45,47 @@ func (c *Client) ConsensusTip() (resp ConsensusTipResponse, err error) {
 
 // SiacoinElement gets the Siacoin element with the given ID.
 func (c *Client) SiacoinElement(id types.ElementID) (resp SiacoinElementResponse, err error) {
-	err = c.c.Post("/api/explorer/element/siacoin", ElementRequest{id}, &resp)
+	data, err := json.Marshal(id)
+	if err != nil {
+		return
+	}
+	err = c.c.Get(fmt.Sprintf("/api/explorer/element/siacoin?id=%s", string(data)), &resp)
 	return
 }
 
 // SiafundElement gets the Siafund element with the given ID.
 func (c *Client) SiafundElement(id types.ElementID) (resp SiafundElementResponse, err error) {
-	err = c.c.Post("/api/explorer/element/siafund", ElementRequest{id}, &resp)
+	data, err := json.Marshal(id)
+	if err != nil {
+		return
+	}
+	err = c.c.Get(fmt.Sprintf("/api/explorer/element/siafund?id=%s", string(data)), &resp)
 	return
 }
 
 // FileContractElement gets the file contract element with the given ID.
 func (c *Client) FileContractElement(id types.ElementID) (resp FileContractElementResponse, err error) {
-	err = c.c.Post("/api/explorer/element/contract", ElementRequest{id}, &resp)
+	data, err := json.Marshal(id)
+	if err != nil {
+		return
+	}
+	err = c.c.Get(fmt.Sprintf("/api/explorer/element/contract?id=%s", string(data)), &resp)
 	return
 }
 
-// BlockFacts gets facts about the block at the given height.
-func (c *Client) BlockFacts(height uint64) (resp BlockFactsResponse, err error) {
-	err = c.c.Post("/api/explorer/block/facts", BlockFactsRequest{height}, &resp)
+// ChainStats gets stats about the block at the given index.
+func (c *Client) ChainStats(index types.ChainIndex) (resp ChainStatsResponse, err error) {
+	data, err := json.Marshal(index)
+	if err != nil {
+		return
+	}
+	err = c.c.Get(fmt.Sprintf("/api/explorer/chain/stats?index=%s", string(data)), &resp)
 	return
 }
 
-// BlockFactsLatest gets facts about the latest block.
-func (c *Client) BlockFactsLatest() (resp BlockFactsResponse, err error) {
-	err = c.c.Get("/api/explorer/block/facts/latest", &resp)
+// ChainStatsLatest gets stats about the latest block.
+func (c *Client) ChainStatsLatest() (resp ChainStatsResponse, err error) {
+	err = c.c.Get("/api/explorer/chain/stats/latest", &resp)
 	return
 }
 

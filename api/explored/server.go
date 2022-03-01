@@ -34,11 +34,11 @@ type (
 	// An Explorer contains a database storing information about blocks, outputs,
 	// contracts.
 	Explorer interface {
-		SiacoinElement(id types.ElementID) (types.SiacoinElement, bool)
-		SiafundElement(id types.ElementID) (types.SiafundElement, bool)
-		FileContractElement(id types.ElementID) (types.FileContractElement, bool)
-		BlockFacts(height uint64) (explorer.BlockFacts, bool)
-		LatestBlockFacts() (explorer.BlockFacts, bool)
+		SiacoinElement(id types.ElementID) (types.SiacoinElement, error)
+		SiafundElement(id types.ElementID) (types.SiafundElement, error)
+		FileContractElement(id types.ElementID) (types.FileContractElement, error)
+		ChainStats(index types.ChainIndex) (explorer.ChainStats, error)
+		ChainStatsLatest() (explorer.ChainStats, error)
 	}
 )
 
@@ -110,69 +110,70 @@ func (s *server) consensusTipHandler(w http.ResponseWriter, req *http.Request, _
 }
 
 func (s *server) explorerElementSiacoinHandler(w http.ResponseWriter, req *http.Request, _ httprouter.Params) {
-	var er ElementRequest
-	if err := json.NewDecoder(req.Body).Decode(&er); err != nil {
+	var id types.ElementID
+	if err := json.Unmarshal([]byte(req.FormValue("id")), &id); err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
-	elem, ok := s.e.SiacoinElement(er.ID)
-	if !ok {
-		http.Error(w, "no such element", http.StatusBadRequest)
+	elem, err := s.e.SiacoinElement(id)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 	api.WriteJSON(w, elem)
 }
 
 func (s *server) explorerElementSiafundHandler(w http.ResponseWriter, req *http.Request, _ httprouter.Params) {
-	var er ElementRequest
-	if err := json.NewDecoder(req.Body).Decode(&er); err != nil {
+	var id types.ElementID
+	if err := json.Unmarshal([]byte(req.FormValue("id")), &id); err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
-	elem, ok := s.e.SiafundElement(er.ID)
-	if !ok {
-		http.Error(w, "no such element", http.StatusBadRequest)
+	elem, err := s.e.SiafundElement(id)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 	api.WriteJSON(w, elem)
 }
 
 func (s *server) explorerElementContractHandler(w http.ResponseWriter, req *http.Request, _ httprouter.Params) {
-	var er ElementRequest
-	if err := json.NewDecoder(req.Body).Decode(&er); err != nil {
+	var id types.ElementID
+	if err := json.Unmarshal([]byte(req.FormValue("id")), &id); err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
-	elem, ok := s.e.FileContractElement(er.ID)
-	if !ok {
-		http.Error(w, "no such element", http.StatusBadRequest)
+	elem, err := s.e.FileContractElement(id)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 	api.WriteJSON(w, elem)
 }
 
-func (s *server) explorerBlockFactsHandler(w http.ResponseWriter, req *http.Request, _ httprouter.Params) {
-	var bfr BlockFactsRequest
-	if err := json.NewDecoder(req.Body).Decode(&bfr); err != nil {
+func (s *server) explorerChainStatsHandler(w http.ResponseWriter, req *http.Request, _ httprouter.Params) {
+	var index types.ChainIndex
+	if err := json.Unmarshal([]byte(req.FormValue("index")), &index); err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
-	facts, ok := s.e.BlockFacts(bfr.Height)
-	if !ok {
-		http.Error(w, "no block facts for that height", http.StatusBadRequest)
+	facts, err := s.e.ChainStats(index)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 	api.WriteJSON(w, facts)
+
 }
 
-func (s *server) explorerBlockFactsLatestHandler(w http.ResponseWriter, req *http.Request, _ httprouter.Params) {
-	facts, ok := s.e.LatestBlockFacts()
-	if !ok {
-		http.Error(w, "no block facts for that height", http.StatusInternalServerError)
+func (s *server) explorerChainStatsLatestHandler(w http.ResponseWriter, req *http.Request, _ httprouter.Params) {
+	facts, err := s.e.ChainStatsLatest()
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 	api.WriteJSON(w, facts)
@@ -196,11 +197,11 @@ func NewServer(cm ChainManager, s Syncer, tp TransactionPool, e Explorer) http.H
 
 	mux.GET("/api/consensus/tip", srv.consensusTipHandler)
 
-	mux.POST("/api/explorer/element/siacoin", srv.explorerElementSiacoinHandler)
-	mux.POST("/api/explorer/element/siafund", srv.explorerElementSiafundHandler)
-	mux.POST("/api/explorer/element/contract", srv.explorerElementContractHandler)
-	mux.POST("/api/explorer/block/facts", srv.explorerBlockFactsHandler)
-	mux.GET("/api/explorer/block/facts/latest", srv.explorerBlockFactsLatestHandler)
+	mux.GET("/api/explorer/element/siacoin", srv.explorerElementSiacoinHandler)
+	mux.GET("/api/explorer/element/siafund", srv.explorerElementSiafundHandler)
+	mux.GET("/api/explorer/element/contract", srv.explorerElementContractHandler)
+	mux.GET("/api/explorer/chain/stats", srv.explorerChainStatsHandler)
+	mux.GET("/api/explorer/chain/stats/latest", srv.explorerChainStatsLatestHandler)
 
 	return mux
 }

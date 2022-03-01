@@ -51,7 +51,7 @@ func newNode(addr, dir string, c consensus.Checkpoint) (*node, error) {
 	tp := txpool.New(tip.Context)
 	cm.AddSubscriber(tp, cm.Tip())
 	e := explorer.New(tip.Context, nil)
-	cm.AddSubscriber(e, cm.Tip())
+	cm.AddSubscriber(e, tip.Context.Index)
 
 	p2pDir := filepath.Join(dir, "p2p")
 	if err := os.MkdirAll(p2pDir, 0700); err != nil {
