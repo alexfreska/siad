@@ -41,6 +41,7 @@ type (
 		ChainStatsLatest() (explorer.ChainStats, error)
 		SiacoinBalance(address types.Address) (types.Currency, error)
 		SiafundBalance(address types.Address) (uint64, error)
+		Transaction(id types.TransactionID) (types.Transaction, error)
 	}
 )
 
@@ -232,6 +233,20 @@ func (s *server) explorerBalanceSiafundHandler(w http.ResponseWriter, req *http.
 	api.WriteJSON(w, balance)
 }
 
+func (s *server) explorerTransactionHandler(w http.ResponseWriter, req *http.Request, p httprouter.Params) {
+	var id types.TransactionID
+	if err := json.Unmarshal([]byte(p.ByName("id")), &id); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	txn, err := s.e.Transaction(id)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	api.WriteJSON(w, txn)
+}
+
 // NewServer returns an HTTP handler that serves the explored API.
 func NewServer(cm ChainManager, s Syncer, tp TransactionPool, e Explorer) http.Handler {
 	srv := server{
@@ -257,6 +272,7 @@ func NewServer(cm ChainManager, s Syncer, tp TransactionPool, e Explorer) http.H
 	mux.GET("/api/explorer/search/:id", srv.explorerSearchHandler)
 	mux.GET("/api/explorer/balance/siacoin/:address", srv.explorerBalanceSiacoinHandler)
 	mux.GET("/api/explorer/balance/siafund/:address", srv.explorerBalanceSiafundHandler)
+	mux.GET("/api/explorer/transaction/:id", srv.explorerTransactionHandler)
 
 	return mux
 }

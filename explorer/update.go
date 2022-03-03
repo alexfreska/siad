@@ -26,6 +26,8 @@ type Store interface {
 	SiacoinBalanceAdjust(address types.Address, amount types.Currency, add bool) error
 	SiafundBalance(address types.Address) (uint64, error)
 	SiafundBalanceAdjust(address types.Address, amount uint64, add bool) error
+	Transaction(id types.TransactionID) (types.Transaction, error)
+	AddTransaction(txn types.Transaction, id types.TransactionID, block types.ChainIndex) error
 }
 
 // An Explorer contains a database storing information about blocks, outputs,
@@ -51,6 +53,12 @@ func (e *Explorer) ProcessChainApplyUpdate(cau *chain.ApplyUpdate, _ bool) error
 		TotalContractCost:   e.tipStats.TotalContractCost,
 		TotalContractSize:   e.tipStats.TotalContractSize,
 		TotalRevisionVolume: e.tipStats.TotalRevisionVolume,
+	}
+
+	for _, txn := range cau.Block.Transactions {
+		if err := e.db.AddTransaction(txn, txn.ID(), stats.Block.Header.Index()); err != nil {
+			return err
+		}
 	}
 
 	for _, elem := range cau.SpentSiacoins {

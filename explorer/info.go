@@ -40,54 +40,35 @@ func (e *Explorer) ChainStatsLatest() (ChainStats, error) {
 
 // ChainStats returns stats about the black at the the specified height.
 func (e *Explorer) ChainStats(index types.ChainIndex) (ChainStats, error) {
-	stats, err := e.db.ChainStats(index)
-	if err != nil {
-		return ChainStats{}, err
-	}
-	return stats, nil
+	return e.db.ChainStats(index)
 }
 
 // SiacoinBalance returns the siacoin balance of an address.
 func (e *Explorer) SiacoinBalance(address types.Address) (types.Currency, error) {
-	balance, err := e.db.SiacoinBalance(address)
-	if err != nil {
-		return types.Currency{}, err
-	}
-	return balance, nil
+	return e.db.SiacoinBalance(address)
 }
 
 // SiafundBalance returns the siafund balance of an address.
 func (e *Explorer) SiafundBalance(address types.Address) (uint64, error) {
-	balance, err := e.db.SiafundBalance(address)
-	if err != nil {
-		return 0, err
-	}
-	return balance, nil
+	return e.db.SiafundBalance(address)
 }
 
 // SiacoinElement returns the siacoin element associated with the specified ID.
 func (e *Explorer) SiacoinElement(id types.ElementID) (types.SiacoinElement, error) {
-	sce, err := e.db.SiacoinElement(id)
-	if err != nil {
-		return types.SiacoinElement{}, err
-	}
-	return sce, nil
+	return e.db.SiacoinElement(id)
 }
 
 // SiafundElement returns the siafund element associated with the specified ID.
 func (e *Explorer) SiafundElement(id types.ElementID) (types.SiafundElement, error) {
-	sfe, err := e.db.SiafundElement(id)
-	if err != nil {
-		return types.SiafundElement{}, err
-	}
-	return sfe, nil
+	return e.db.SiafundElement(id)
 }
 
 // FileContractElement returns the file contract element associated with the specified ID.
 func (e *Explorer) FileContractElement(id types.ElementID) (types.FileContractElement, error) {
-	fce, err := e.db.FileContractElement(id)
-	if err != nil {
-		return types.FileContractElement{}, err
-	}
-	return fce, nil
+	return e.db.FileContractElement(id)
+}
+
+// Transaction returns the transaction with the given ID.
+func (e *Explorer) Transaction(id types.TransactionID) (types.Transaction, error) {
+	return e.db.Transaction(id)
 }
