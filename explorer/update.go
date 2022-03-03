@@ -22,6 +22,10 @@ type Store interface {
 	AddChainStats(index types.ChainIndex, stats ChainStats) error
 	BlockIndex() (types.ChainIndex, error)
 	SetBlockIndex(index types.ChainIndex) error
+	SiacoinBalance(address types.Address) (types.Currency, error)
+	SiacoinBalanceAdjust(address types.Address, amount types.Currency, add bool) error
+	SiafundBalance(address types.Address) (uint64, error)
+	SiafundBalanceAdjust(address types.Address, amount uint64, add bool) error
 }
 
 // An Explorer contains a database storing information about blocks, outputs,
@@ -53,10 +57,16 @@ func (e *Explorer) ProcessChainApplyUpdate(cau *chain.ApplyUpdate, _ bool) error
 		if err := e.db.RemoveElement(elem.ID); err != nil {
 			return err
 		}
+		if err := e.db.SiacoinBalanceAdjust(elem.Address, elem.Value, false); err != nil {
+			return err
+		}
 		stats.SpentSiacoinsCount++
 	}
 	for _, elem := range cau.SpentSiafunds {
 		if err := e.db.RemoveElement(elem.ID); err != nil {
+			return err
+		}
+		if err := e.db.SiafundBalanceAdjust(elem.Address, elem.Value, false); err != nil {
 			return err
 		}
 		stats.SpentSiafundsCount++
@@ -76,10 +86,16 @@ func (e *Explorer) ProcessChainApplyUpdate(cau *chain.ApplyUpdate, _ bool) error
 		if err := e.db.AddSiacoinElement(elem); err != nil {
 			return err
 		}
+		if err := e.db.SiacoinBalanceAdjust(elem.Address, elem.Value, true); err != nil {
+			return err
+		}
 		stats.NewSiacoinsCount++
 	}
 	for _, elem := range cau.NewSiafundElements {
 		if err := e.db.AddSiafundElement(elem); err != nil {
+			return err
+		}
+		if err := e.db.SiafundBalanceAdjust(elem.Address, elem.Value, true); err != nil {
 			return err
 		}
 		stats.NewSiafundsCount++
@@ -124,9 +140,15 @@ func (e *Explorer) ProcessChainRevertUpdate(cru *chain.RevertUpdate) error {
 		if err := e.db.AddSiacoinElement(elem); err != nil {
 			return err
 		}
+		if err := e.db.SiacoinBalanceAdjust(elem.Address, elem.Value, true); err != nil {
+			return err
+		}
 	}
 	for _, elem := range cru.SpentSiafunds {
 		if err := e.db.AddSiafundElement(elem); err != nil {
+			return err
+		}
+		if err := e.db.SiafundBalanceAdjust(elem.Address, elem.Value, true); err != nil {
 			return err
 		}
 	}
@@ -140,9 +162,15 @@ func (e *Explorer) ProcessChainRevertUpdate(cru *chain.RevertUpdate) error {
 		if err := e.db.RemoveElement(elem.ID); err != nil {
 			return err
 		}
+		if err := e.db.SiacoinBalanceAdjust(elem.Address, elem.Value, false); err != nil {
+			return err
+		}
 	}
 	for _, elem := range cru.NewSiafundElements {
 		if err := e.db.RemoveElement(elem.ID); err != nil {
+			return err
+		}
+		if err := e.db.SiafundBalanceAdjust(elem.Address, elem.Value, false); err != nil {
 			return err
 		}
 	}

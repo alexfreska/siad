@@ -6,6 +6,7 @@ import (
 
 	"go.sia.tech/core/types"
 	"go.sia.tech/siad/v2/api"
+	"go.sia.tech/siad/v2/explorer"
 )
 
 // A Client provides methods for interacting with a explored API server.
@@ -43,49 +44,79 @@ func (c *Client) ConsensusTip() (resp ConsensusTipResponse, err error) {
 	return
 }
 
-// SiacoinElement gets the Siacoin element with the given ID.
-func (c *Client) SiacoinElement(id types.ElementID) (resp SiacoinElementResponse, err error) {
+// ExplorerSiacoinElement gets the Siacoin element with the given ID.
+func (c *Client) ExplorerSiacoinElement(id types.ElementID) (resp types.SiacoinElement, err error) {
 	data, err := json.Marshal(id)
 	if err != nil {
 		return
 	}
-	err = c.c.Get(fmt.Sprintf("/api/explorer/element/siacoin?id=%s", string(data)), &resp)
+	err = c.c.Get(fmt.Sprintf("/api/explorer/element/siacoin/%s", string(data)), &resp)
 	return
 }
 
-// SiafundElement gets the Siafund element with the given ID.
-func (c *Client) SiafundElement(id types.ElementID) (resp SiafundElementResponse, err error) {
+// ExplorerSiafundElement gets the Siafund element with the given ID.
+func (c *Client) ExplorerSiafundElement(id types.ElementID) (resp types.SiafundElement, err error) {
 	data, err := json.Marshal(id)
 	if err != nil {
 		return
 	}
-	err = c.c.Get(fmt.Sprintf("/api/explorer/element/siafund?id=%s", string(data)), &resp)
+	err = c.c.Get(fmt.Sprintf("/api/explorer/element/siafund/%s", string(data)), &resp)
 	return
 }
 
-// FileContractElement gets the file contract element with the given ID.
-func (c *Client) FileContractElement(id types.ElementID) (resp FileContractElementResponse, err error) {
+// ExplorerFileContractElement gets the file contract element with the given ID.
+func (c *Client) ExplorerFileContractElement(id types.ElementID) (resp types.FileContractElement, err error) {
 	data, err := json.Marshal(id)
 	if err != nil {
 		return
 	}
-	err = c.c.Get(fmt.Sprintf("/api/explorer/element/contract?id=%s", string(data)), &resp)
+	err = c.c.Get(fmt.Sprintf("/api/explorer/element/contract/%s", string(data)), &resp)
 	return
 }
 
-// ChainStats gets stats about the block at the given index.
-func (c *Client) ChainStats(index types.ChainIndex) (resp ChainStatsResponse, err error) {
+// ExplorerChainStats gets stats about the block at the given index.
+func (c *Client) ExplorerChainStats(index types.ChainIndex) (resp explorer.ChainStats, err error) {
 	data, err := json.Marshal(index)
 	if err != nil {
 		return
 	}
-	err = c.c.Get(fmt.Sprintf("/api/explorer/chain/stats?index=%s", string(data)), &resp)
+	err = c.c.Get(fmt.Sprintf("/api/explorer/chain/stats/%s", string(data)), &resp)
 	return
 }
 
-// ChainStatsLatest gets stats about the latest block.
-func (c *Client) ChainStatsLatest() (resp ChainStatsResponse, err error) {
+// ExplorerChainStatsLatest gets stats about the latest block.
+func (c *Client) ExplorerChainStatsLatest() (resp explorer.ChainStats, err error) {
 	err = c.c.Get("/api/explorer/chain/stats/latest", &resp)
+	return
+}
+
+// ExplorerSearch gets information about a given element.
+func (c *Client) ExplorerSearch(id types.ElementID) (resp ExplorerSearchResponse, err error) {
+	data, err := json.Marshal(id)
+	if err != nil {
+		return
+	}
+	err = c.c.Get(fmt.Sprintf("/api/explorer/search/%s", string(data)), &resp)
+	return
+}
+
+// ExplorerSiacoinBalance gets the siacoin balance of an address.
+func (c *Client) ExplorerSiacoinBalance(address types.Address) (resp types.Currency, err error) {
+	data, err := json.Marshal(address)
+	if err != nil {
+		return
+	}
+	err = c.c.Get(fmt.Sprintf("/api/explorer/balance/siacoin/%s", string(data)), &resp)
+	return
+}
+
+// ExplorerSiafundBalance gets the siafund balance of an address.
+func (c *Client) ExplorerSiafundBalance(address types.Address) (resp types.Currency, err error) {
+	data, err := json.Marshal(address)
+	if err != nil {
+		return
+	}
+	err = c.c.Get(fmt.Sprintf("/api/explorer/balance/siafund/%s", string(data)), &resp)
 	return
 }
 

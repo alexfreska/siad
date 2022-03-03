@@ -47,6 +47,24 @@ func (e *Explorer) ChainStats(index types.ChainIndex) (ChainStats, error) {
 	return stats, nil
 }
 
+// SiacoinBalance returns the siacoin balance of an address.
+func (e *Explorer) SiacoinBalance(address types.Address) (types.Currency, error) {
+	balance, err := e.db.SiacoinBalance(address)
+	if err != nil {
+		return types.Currency{}, err
+	}
+	return balance, nil
+}
+
+// SiafundBalance returns the siafund balance of an address.
+func (e *Explorer) SiafundBalance(address types.Address) (uint64, error) {
+	balance, err := e.db.SiafundBalance(address)
+	if err != nil {
+		return 0, err
+	}
+	return balance, nil
+}
+
 // SiacoinElement returns the siacoin element associated with the specified ID.
 func (e *Explorer) SiacoinElement(id types.ElementID) (types.SiacoinElement, error) {
 	sce, err := e.db.SiacoinElement(id)

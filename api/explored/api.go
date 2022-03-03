@@ -4,7 +4,6 @@ import (
 	"time"
 
 	"go.sia.tech/core/types"
-	"go.sia.tech/siad/v2/explorer"
 )
 
 // TxpoolBroadcastRequest is the request for the /txpool/broadcast endpoint.
@@ -27,25 +26,21 @@ type SyncerConnectRequest struct {
 
 // ConsensusTipResponse contains information about the current consensus state.
 type ConsensusTipResponse struct {
-	Index types.ChainIndex
+	Index types.ChainIndex `json:"index"`
 
-	TotalWork  types.Work
-	Difficulty types.Work
-	OakWork    types.Work
-	OakTime    time.Duration
+	TotalWork  types.Work    `json:"totalWork"`
+	Difficulty types.Work    `json:"difficulty"`
+	OakWork    types.Work    `json:"oakWork"`
+	OakTime    time.Duration `json:"oakTime"`
 
-	SiafundPool       types.Currency
-	FoundationAddress types.Address
+	SiafundPool       types.Currency `json:"siafundPool"`
+	FoundationAddress types.Address  `json:"foundationAddress"`
 }
 
-// An SiacoinElementResponse contains a Siacoin element
-type SiacoinElementResponse types.SiacoinElement
-
-// An SiafundElementResponse contains a Siafund element
-type SiafundElementResponse types.SiafundElement
-
-// An FileContractElementResponse contains a Siafund element
-type FileContractElementResponse types.FileContractElement
-
-// A ChainStatsResponse contains stats about a block.
-type ChainStatsResponse explorer.ChainStats
+// A ExplorerSearchResponse contains information about an element.
+type ExplorerSearchResponse struct {
+	Type                string                    `json:"type"`
+	SiacoinElement      types.SiacoinElement      `json:"siacoinElement"`
+	SiafundElement      types.SiafundElement      `json:"siafundElement"`
+	FileContractElement types.FileContractElement `json:"fileContractElement"`
+}
