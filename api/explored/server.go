@@ -3,6 +3,7 @@ package explored
 import (
 	"encoding/json"
 	"net/http"
+	"strconv"
 
 	"github.com/julienschmidt/httprouter"
 	"go.sia.tech/core/consensus"
@@ -42,6 +43,9 @@ type (
 		SiacoinBalance(address types.Address) (types.Currency, error)
 		SiafundBalance(address types.Address) (uint64, error)
 		Transaction(id types.TransactionID) (types.Transaction, error)
+		UnspentSiacoinElements(address types.Address) ([]types.ElementID, error)
+		UnspentSiafundElements(address types.Address) ([]types.ElementID, error)
+		Transactions(address types.Address, amount int) ([]types.TransactionID, error)
 	}
 )
 
@@ -205,32 +209,71 @@ func (s *server) explorerSearchHandler(w http.ResponseWriter, req *http.Request,
 	api.WriteJSON(w, response)
 }
 
-func (s *server) explorerBalanceSiacoinHandler(w http.ResponseWriter, req *http.Request, p httprouter.Params) {
+func (s *server) explorerAddressBalanceHandler(w http.ResponseWriter, req *http.Request, p httprouter.Params) {
 	var address types.Address
 	if err := json.Unmarshal([]byte(p.ByName("address")), &address); err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	balance, err := s.e.SiacoinBalance(address)
+	scBalance, err := s.e.SiacoinBalance(address)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	api.WriteJSON(w, balance)
+	sfBalance, err := s.e.SiafundBalance(address)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	api.WriteJSON(w, ExplorerWalletBalanceResponse{scBalance, sfBalance})
 }
 
-func (s *server) explorerBalanceSiafundHandler(w http.ResponseWriter, req *http.Request, p httprouter.Params) {
+func (s *server) explorerAddressSiacoinsHandler(w http.ResponseWriter, req *http.Request, p httprouter.Params) {
 	var address types.Address
 	if err := json.Unmarshal([]byte(p.ByName("address")), &address); err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	balance, err := s.e.SiafundBalance(address)
+	outputs, err := s.e.UnspentSiacoinElements(address)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	api.WriteJSON(w, balance)
+	api.WriteJSON(w, outputs)
+}
+
+func (s *server) explorerAddressSiafundsHandler(w http.ResponseWriter, req *http.Request, p httprouter.Params) {
+	var address types.Address
+	if err := json.Unmarshal([]byte(p.ByName("address")), &address); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	outputs, err := s.e.UnspentSiafundElements(address)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	api.WriteJSON(w, outputs)
+}
+
+func (s *server) explorerAddressTransactionsHandler(w http.ResponseWriter, req *http.Request, p httprouter.Params) {
+	var address types.Address
+	if err := json.Unmarshal([]byte(p.ByName("address")), &address); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	amount, err := strconv.Atoi(req.FormValue("amount"))
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	ids, err := s.e.Transactions(address, amount)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	api.WriteJSON(w, ids)
 }
 
 func (s *server) explorerTransactionHandler(w http.ResponseWriter, req *http.Request, p httprouter.Params) {
@@ -245,6 +288,87 @@ func (s *server) explorerTransactionHandler(w http.ResponseWriter, req *http.Req
 		return
 	}
 	api.WriteJSON(w, txn)
+}
+
+func (s *server) explorerBatchAddressesBalanceHandler(w http.ResponseWriter, req *http.Request, _ httprouter.Params) {
+	var addresses []types.Address
+	if err := json.NewDecoder(req.Body).Decode(&addresses); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	var balances []ExplorerWalletBalanceResponse
+	for _, address := range addresses {
+		scBalance, err := s.e.SiacoinBalance(address)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+		sfBalance, err := s.e.SiafundBalance(address)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+		balances = append(balances, ExplorerWalletBalanceResponse{scBalance, sfBalance})
+	}
+	api.WriteJSON(w, balances)
+}
+
+func (s *server) explorerBatchAddressesSiacoinsHandler(w http.ResponseWriter, req *http.Request, _ httprouter.Params) {
+	var addresses []types.Address
+	if err := json.NewDecoder(req.Body).Decode(&addresses); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	var elems [][]types.ElementID
+	for _, address := range addresses {
+		ids, err := s.e.UnspentSiacoinElements(address)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+		elems = append(elems, ids)
+	}
+	api.WriteJSON(w, elems)
+}
+
+func (s *server) explorerBatchAddressesSiafundsHandler(w http.ResponseWriter, req *http.Request, _ httprouter.Params) {
+	var addresses []types.Address
+	if err := json.NewDecoder(req.Body).Decode(&addresses); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	var elems [][]types.ElementID
+	for _, address := range addresses {
+		ids, err := s.e.UnspentSiafundElements(address)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+		elems = append(elems, ids)
+	}
+	api.WriteJSON(w, elems)
+}
+
+func (s *server) explorerBatchAddressesTransactionsHandler(w http.ResponseWriter, req *http.Request, _ httprouter.Params) {
+	var etrs []ExplorerTransactionsRequest
+	if err := json.NewDecoder(req.Body).Decode(&etrs); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	var txns [][]types.TransactionID
+	for _, etr := range etrs {
+		ids, err := s.e.Transactions(etr.Address, etr.Amount)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+		txns = append(txns, ids)
+	}
+	api.WriteJSON(w, txns)
 }
 
 // NewServer returns an HTTP handler that serves the explored API.
@@ -270,9 +394,17 @@ func NewServer(cm ChainManager, s Syncer, tp TransactionPool, e Explorer) http.H
 	mux.GET("/api/explorer/element/contract/:id", srv.explorerElementContractHandler)
 	mux.GET("/api/explorer/chain/stats/:index", srv.explorerChainStatsHandler)
 	mux.GET("/api/explorer/search/:id", srv.explorerSearchHandler)
-	mux.GET("/api/explorer/balance/siacoin/:address", srv.explorerBalanceSiacoinHandler)
-	mux.GET("/api/explorer/balance/siafund/:address", srv.explorerBalanceSiafundHandler)
 	mux.GET("/api/explorer/transaction/:id", srv.explorerTransactionHandler)
+
+	mux.GET("/api/explorer/address/balance/:address", srv.explorerAddressBalanceHandler)
+	mux.GET("/api/explorer/address/siacoins/:address", srv.explorerAddressSiacoinsHandler)
+	mux.GET("/api/explorer/address/siafunds/:address", srv.explorerAddressSiacoinsHandler)
+	mux.GET("/api/explorer/address/transactions/:address", srv.explorerAddressTransactionsHandler)
+
+	mux.POST("/api/explorer/batch/addresses/balance", srv.explorerBatchAddressesBalanceHandler)
+	mux.POST("/api/explorer/batch/addresses/siacoins", srv.explorerBatchAddressesSiacoinsHandler)
+	mux.POST("/api/explorer/batch/addresses/siafunds", srv.explorerBatchAddressesSiafundsHandler)
+	mux.POST("/api/explorer/batch/addresses/transactions", srv.explorerBatchAddressesTransactionsHandler)
 
 	return mux
 }

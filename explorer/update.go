@@ -22,12 +22,15 @@ type Store interface {
 	AddChainStats(index types.ChainIndex, stats ChainStats) error
 	BlockIndex() (types.ChainIndex, error)
 	SetBlockIndex(index types.ChainIndex) error
-	SiacoinBalance(address types.Address) (types.Currency, error)
-	SiacoinBalanceAdjust(address types.Address, amount types.Currency, add bool) error
-	SiafundBalance(address types.Address) (uint64, error)
-	SiafundBalanceAdjust(address types.Address, amount uint64, add bool) error
+	AddUnspentSiacoinElement(address types.Address, id types.ElementID) error
+	AddUnspentSiafundElement(address types.Address, id types.ElementID) error
+	RemoveUnspentSiacoinElement(address types.Address, id types.ElementID) error
+	RemoveUnspentSiafundElement(address types.Address, id types.ElementID) error
+	UnspentSiacoinElements(address types.Address) ([]types.ElementID, error)
+	UnspentSiafundElements(address types.Address) ([]types.ElementID, error)
 	Transaction(id types.TransactionID) (types.Transaction, error)
-	AddTransaction(txn types.Transaction, id types.TransactionID, block types.ChainIndex) error
+	AddTransaction(txn types.Transaction, id types.TransactionID, addresses []types.Address, block types.ChainIndex) error
+	Transactions(address types.Address, amount int) ([]types.TransactionID, error)
 }
 
 // An Explorer contains a database storing information about blocks, outputs,
@@ -56,7 +59,25 @@ func (e *Explorer) ProcessChainApplyUpdate(cau *chain.ApplyUpdate, _ bool) error
 	}
 
 	for _, txn := range cau.Block.Transactions {
-		if err := e.db.AddTransaction(txn, txn.ID(), stats.Block.Header.Index()); err != nil {
+		// get a unique list of all addresses involved in transaction
+		var addrMap map[types.Address]struct{}
+		for _, elem := range txn.SiacoinInputs {
+			addrMap[elem.Parent.Address] = struct{}{}
+		}
+		for _, elem := range txn.SiacoinOutputs {
+			addrMap[elem.Address] = struct{}{}
+		}
+		for _, elem := range txn.SiafundInputs {
+			addrMap[elem.Parent.Address] = struct{}{}
+		}
+		for _, elem := range txn.SiafundOutputs {
+			addrMap[elem.Address] = struct{}{}
+		}
+		var addrs []types.Address
+		for addr := range addrMap {
+			addrs = append(addrs, addr)
+		}
+		if err := e.db.AddTransaction(txn, txn.ID(), addrs, stats.Block.Header.Index()); err != nil {
 			return err
 		}
 	}
@@ -65,7 +86,7 @@ func (e *Explorer) ProcessChainApplyUpdate(cau *chain.ApplyUpdate, _ bool) error
 		if err := e.db.RemoveElement(elem.ID); err != nil {
 			return err
 		}
-		if err := e.db.SiacoinBalanceAdjust(elem.Address, elem.Value, false); err != nil {
+		if err := e.db.RemoveUnspentSiacoinElement(elem.Address, elem.ID); err != nil {
 			return err
 		}
 		stats.SpentSiacoinsCount++
@@ -74,7 +95,7 @@ func (e *Explorer) ProcessChainApplyUpdate(cau *chain.ApplyUpdate, _ bool) error
 		if err := e.db.RemoveElement(elem.ID); err != nil {
 			return err
 		}
-		if err := e.db.SiafundBalanceAdjust(elem.Address, elem.Value, false); err != nil {
+		if err := e.db.RemoveUnspentSiafundElement(elem.Address, elem.ID); err != nil {
 			return err
 		}
 		stats.SpentSiafundsCount++
@@ -94,7 +115,7 @@ func (e *Explorer) ProcessChainApplyUpdate(cau *chain.ApplyUpdate, _ bool) error
 		if err := e.db.AddSiacoinElement(elem); err != nil {
 			return err
 		}
-		if err := e.db.SiacoinBalanceAdjust(elem.Address, elem.Value, true); err != nil {
+		if err := e.db.AddUnspentSiacoinElement(elem.Address, elem.ID); err != nil {
 			return err
 		}
 		stats.NewSiacoinsCount++
@@ -103,7 +124,7 @@ func (e *Explorer) ProcessChainApplyUpdate(cau *chain.ApplyUpdate, _ bool) error
 		if err := e.db.AddSiafundElement(elem); err != nil {
 			return err
 		}
-		if err := e.db.SiafundBalanceAdjust(elem.Address, elem.Value, true); err != nil {
+		if err := e.db.AddUnspentSiafundElement(elem.Address, elem.ID); err != nil {
 			return err
 		}
 		stats.NewSiafundsCount++
@@ -148,7 +169,7 @@ func (e *Explorer) ProcessChainRevertUpdate(cru *chain.RevertUpdate) error {
 		if err := e.db.AddSiacoinElement(elem); err != nil {
 			return err
 		}
-		if err := e.db.SiacoinBalanceAdjust(elem.Address, elem.Value, true); err != nil {
+		if err := e.db.AddUnspentSiacoinElement(elem.Address, elem.ID); err != nil {
 			return err
 		}
 	}
@@ -156,7 +177,7 @@ func (e *Explorer) ProcessChainRevertUpdate(cru *chain.RevertUpdate) error {
 		if err := e.db.AddSiafundElement(elem); err != nil {
 			return err
 		}
-		if err := e.db.SiafundBalanceAdjust(elem.Address, elem.Value, true); err != nil {
+		if err := e.db.AddUnspentSiafundElement(elem.Address, elem.ID); err != nil {
 			return err
 		}
 	}
@@ -170,7 +191,7 @@ func (e *Explorer) ProcessChainRevertUpdate(cru *chain.RevertUpdate) error {
 		if err := e.db.RemoveElement(elem.ID); err != nil {
 			return err
 		}
-		if err := e.db.SiacoinBalanceAdjust(elem.Address, elem.Value, false); err != nil {
+		if err := e.db.RemoveUnspentSiacoinElement(elem.Address, elem.ID); err != nil {
 			return err
 		}
 	}
@@ -178,7 +199,7 @@ func (e *Explorer) ProcessChainRevertUpdate(cru *chain.RevertUpdate) error {
 		if err := e.db.RemoveElement(elem.ID); err != nil {
 			return err
 		}
-		if err := e.db.SiafundBalanceAdjust(elem.Address, elem.Value, false); err != nil {
+		if err := e.db.RemoveUnspentSiafundElement(elem.Address, elem.ID); err != nil {
 			return err
 		}
 	}

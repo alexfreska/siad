@@ -100,23 +100,68 @@ func (c *Client) ExplorerSearch(id types.ElementID) (resp ExplorerSearchResponse
 	return
 }
 
-// ExplorerSiacoinBalance gets the siacoin balance of an address.
-func (c *Client) ExplorerSiacoinBalance(address types.Address) (resp types.Currency, err error) {
+// ExplorerBalance gets the siacoin and siafund balance of an address.
+func (c *Client) ExplorerBalance(address types.Address) (resp ExplorerWalletBalanceResponse, err error) {
 	data, err := json.Marshal(address)
 	if err != nil {
 		return
 	}
-	err = c.c.Get(fmt.Sprintf("/api/explorer/balance/siacoin/%s", string(data)), &resp)
+	err = c.c.Get(fmt.Sprintf("/api/explorer/address/balance/%s", string(data)), &resp)
 	return
 }
 
-// ExplorerSiafundBalance gets the siafund balance of an address.
-func (c *Client) ExplorerSiafundBalance(address types.Address) (resp types.Currency, err error) {
+// ExplorerSiacoinOutputs gets the unspent siacoin elements of an address.
+func (c *Client) ExplorerSiacoinOutputs(address types.Address) (resp []types.SiacoinElement, err error) {
 	data, err := json.Marshal(address)
 	if err != nil {
 		return
 	}
-	err = c.c.Get(fmt.Sprintf("/api/explorer/balance/siafund/%s", string(data)), &resp)
+	err = c.c.Get(fmt.Sprintf("/api/explorer/address/siacoins/%s", string(data)), &resp)
+	return
+}
+
+// ExplorerSiafundOutputs gets the unspent siafunds elements of an address.
+func (c *Client) ExplorerSiafundOutputs(address types.Address) (resp []types.SiafundElement, err error) {
+	data, err := json.Marshal(address)
+	if err != nil {
+		return
+	}
+	err = c.c.Get(fmt.Sprintf("/api/explorer/address/siafunds/%s", string(data)), &resp)
+	return
+}
+
+// ExplorerTransactions gets the latest transaction IDs the address was
+// involved in.
+func (c *Client) ExplorerTransactions(address types.Address, amount int) (resp []types.ElementID, err error) {
+	data, err := json.Marshal(address)
+	if err != nil {
+		return
+	}
+	err = c.c.Get(fmt.Sprintf("/api/explorer/address/transactions/%s?amount=%d", string(data), amount), &resp)
+	return
+}
+
+// ExplorerBatchBalance gets the siacoin and siafund balance of a list of addresses.
+func (c *Client) ExplorerBatchBalance(addresses []types.Address) (resp []ExplorerWalletBalanceResponse, err error) {
+	err = c.c.Post("/api/explorer/batch/addresses/balance", addresses, &resp)
+	return
+}
+
+// ExplorerBatchSiacoins returns the unspent siacoin elements of the addresses.
+func (c *Client) ExplorerBatchSiacoins(addresses []types.Address) (resp [][]types.ElementID, err error) {
+	err = c.c.Post("/api/explorer/batch/addresses/siacoins", addresses, &resp)
+	return
+}
+
+// ExplorerBatchSiafunds returns the unspent siafund elements of the addresses.
+func (c *Client) ExplorerBatchSiafunds(addresses []types.Address) (resp [][]types.ElementID, err error) {
+	err = c.c.Post("/api/explorer/batch/addresses/siafunds", addresses, &resp)
+	return
+}
+
+// ExplorerBatchTransactions returns the last n transactions of the addresses.
+func (c *Client) ExplorerBatchTransactions(addresses []ExplorerTransactionsRequest) (resp [][]types.ElementID, err error) {
+	err = c.c.Post("/api/explorer/batch/addresses/transactions", addresses, &resp)
 	return
 }
 

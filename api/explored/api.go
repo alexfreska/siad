@@ -44,3 +44,17 @@ type ExplorerSearchResponse struct {
 	SiafundElement      types.SiafundElement      `json:"siafundElement"`
 	FileContractElement types.FileContractElement `json:"fileContractElement"`
 }
+
+// A ExplorerWalletBalanceResponse contains the confirmed Siacoin and Siafund balance of
+// the wallet.
+type ExplorerWalletBalanceResponse struct {
+	Siacoins types.Currency `json:"siacoins"`
+	Siafunds uint64         `json:"siafunds"`
+}
+
+// A ExplorerTransactionsRequest contains an address and the amount of
+// transactions involving the address to request.
+type ExplorerTransactionsRequest struct {
+	Address types.Address `json:"address"`
+	Amount  int           `json:"amount"`
+}

@@ -45,12 +45,56 @@ func (e *Explorer) ChainStats(index types.ChainIndex) (ChainStats, error) {
 
 // SiacoinBalance returns the siacoin balance of an address.
 func (e *Explorer) SiacoinBalance(address types.Address) (types.Currency, error) {
-	return e.db.SiacoinBalance(address)
+	ids, err := e.db.UnspentSiacoinElements(address)
+	if err != nil {
+		return types.Currency{}, err
+	}
+
+	var sum types.Currency
+	for _, id := range ids {
+		elem, err := e.db.SiacoinElement(id)
+		if err != nil {
+			return types.Currency{}, err
+		}
+		sum = sum.Add(elem.Value)
+	}
+	return sum, nil
 }
 
 // SiafundBalance returns the siafund balance of an address.
 func (e *Explorer) SiafundBalance(address types.Address) (uint64, error) {
-	return e.db.SiafundBalance(address)
+	ids, err := e.db.UnspentSiafundElements(address)
+	if err != nil {
+		return 0, err
+	}
+
+	var sum uint64
+	for _, id := range ids {
+		elem, err := e.db.SiafundElement(id)
+		if err != nil {
+			return 0, err
+		}
+		sum += elem.Value
+	}
+	return sum, nil
+}
+
+// UnspentSiacoinElements returns unspent siacoin elements associated with the
+// specified address.
+func (e *Explorer) UnspentSiacoinElements(address types.Address) ([]types.ElementID, error) {
+	return e.db.UnspentSiacoinElements(address)
+}
+
+// UnspentSiafundElements returns unspent siafund elements associated with the
+// specified address.
+func (e *Explorer) UnspentSiafundElements(address types.Address) ([]types.ElementID, error) {
+	return e.db.UnspentSiafundElements(address)
+}
+
+// Transactions returns the latest n transaction IDs associated with the
+// specified address.
+func (e *Explorer) Transactions(address types.Address, amount int) ([]types.TransactionID, error) {
+	return e.db.Transactions(address, amount)
 }
 
 // SiacoinElement returns the siacoin element associated with the specified ID.
