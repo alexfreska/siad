@@ -12,7 +12,7 @@ import (
 // and blocks.
 type Store interface {
 	AddSiacoinElement(sce types.SiacoinElement) error
-	AddSiafundElement(sce types.SiafundElement) error
+	AddSiafundElement(sfe types.SiafundElement) error
 	AddFileContractElement(fce types.FileContractElement) error
 	RemoveElement(id types.ElementID) error
 	SiacoinElement(id types.ElementID) (types.SiacoinElement, error)
@@ -20,8 +20,6 @@ type Store interface {
 	FileContractElement(id types.ElementID) (types.FileContractElement, error)
 	ChainStats(index types.ChainIndex) (ChainStats, error)
 	AddChainStats(index types.ChainIndex, stats ChainStats) error
-	BlockIndex() (types.ChainIndex, error)
-	SetBlockIndex(index types.ChainIndex) error
 	AddUnspentSiacoinElement(address types.Address, id types.ElementID) error
 	AddUnspentSiafundElement(address types.Address, id types.ElementID) error
 	RemoveUnspentSiacoinElement(address types.Address, id types.ElementID) error
@@ -29,7 +27,7 @@ type Store interface {
 	UnspentSiacoinElements(address types.Address) ([]types.ElementID, error)
 	UnspentSiafundElements(address types.Address) ([]types.ElementID, error)
 	Transaction(id types.TransactionID) (types.Transaction, error)
-	AddTransaction(txn types.Transaction, id types.TransactionID, addresses []types.Address, block types.ChainIndex) error
+	AddTransaction(txn types.Transaction, addresses []types.Address, block types.ChainIndex) error
 	Transactions(address types.Address, amount int) ([]types.TransactionID, error)
 }
 
@@ -77,7 +75,7 @@ func (e *Explorer) ProcessChainApplyUpdate(cau *chain.ApplyUpdate, _ bool) error
 		for addr := range addrMap {
 			addrs = append(addrs, addr)
 		}
-		if err := e.db.AddTransaction(txn, txn.ID(), addrs, stats.Block.Header.Index()); err != nil {
+		if err := e.db.AddTransaction(txn, addrs, stats.Block.Header.Index()); err != nil {
 			return err
 		}
 	}
@@ -152,9 +150,6 @@ func (e *Explorer) ProcessChainApplyUpdate(cau *chain.ApplyUpdate, _ bool) error
 	if err := e.db.AddChainStats(stats.ValidationContext.Index, stats); err != nil {
 		return err
 	}
-	if err := e.db.SetBlockIndex(stats.ValidationContext.Index); err != nil {
-		return err
-	}
 
 	e.vc, e.tipStats = cau.Context, stats
 	return nil
@@ -221,9 +216,6 @@ func (e *Explorer) ProcessChainRevertUpdate(cru *chain.RevertUpdate) error {
 		}
 	}
 
-	if err := e.db.SetBlockIndex(cru.Context.Index); err != nil {
-		return err
-	}
 	oldStats, err := e.db.ChainStats(cru.Context.Index)
 	if err != nil {
 		return err

@@ -31,11 +31,7 @@ type ChainStats struct {
 
 // ChainStatsLatest returns stats about the latest black.
 func (e *Explorer) ChainStatsLatest() (ChainStats, error) {
-	index, err := e.db.BlockIndex()
-	if err != nil {
-		return ChainStats{}, err
-	}
-	return e.ChainStats(index)
+	return e.ChainStats(e.vc.Index)
 }
 
 // ChainStats returns stats about the black at the the specified height.
