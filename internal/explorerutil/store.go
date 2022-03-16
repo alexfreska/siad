@@ -1,6 +1,7 @@
 package explorerutil
 
 import (
+	"context"
 	"database/sql"
 	"encoding/hex"
 	"encoding/json"
@@ -14,7 +15,11 @@ import (
 )
 
 type SqliteStore struct {
-	db *sql.DB
+	*sql.DB
+}
+
+type Transaction struct {
+	*sql.Tx
 }
 
 func NewStore(dir string) (*SqliteStore, error) {
@@ -24,25 +29,25 @@ func NewStore(dir string) (*SqliteStore, error) {
 	}
 	if _, err := db.Exec(`
 CREATE TABLE elements (
-    id VARCHAR(128),
+    id VARCHAR(128) PRIMARY KEY,
     type VARCHAR(128),
-    data BLOB
+    data BLOB NOT NULL
 );
 
 CREATE TABLE chainstats (
-    id VARCHAR(128),
-    data BLOB
+    id VARCHAR(128) PRIMARY KEY,
+    data BLOB NOT NULL
 );
 
 CREATE TABLE unspentElements (
-    id VARCHAR(128),
+    id VARCHAR(128) PRIMARY KEY,
     type VARCHAR(128),
 	address VARCHAR(128)
 );
 
 CREATE TABLE transactions (
-    id VARCHAR(128),
-    data BLOB
+    id VARCHAR(128) PRIMARY KEY,
+    data BLOB NOT NULL
 );
 
 CREATE TABLE addressTransactions (
@@ -55,56 +60,16 @@ CREATE TABLE addressTransactions (
 	return &SqliteStore{db}, nil
 }
 
-func (s *SqliteStore) AddSiacoinElement(sce types.SiacoinElement) error {
-	statement, err := s.db.Prepare(`INSERT INTO elements(id, type, data) VALUES(?, ?, ?)`)
+func (s *SqliteStore) CreateTransaction() (explorer.Transaction, error) {
+	tx, err := s.BeginTx(context.Background(), nil)
 	if err != nil {
-		return err
+		return nil, err
 	}
-	data, err := json.Marshal(sce)
-	if err != nil {
-		return err
-	}
-	_, err = statement.Exec(sce.ID.String(), "siacoin", data)
-	return err
-}
-
-func (s *SqliteStore) AddSiafundElement(sfe types.SiafundElement) error {
-	statement, err := s.db.Prepare(`INSERT INTO elements(id, type, data) VALUES(?, ?, ?)`)
-	if err != nil {
-		return err
-	}
-	data, err := json.Marshal(sfe)
-	if err != nil {
-		return err
-	}
-	_, err = statement.Exec(sfe.ID.String(), "siafund", data)
-	return err
-}
-
-func (s *SqliteStore) AddFileContractElement(fce types.FileContractElement) error {
-	statement, err := s.db.Prepare(`INSERT INTO elements(id, type, data) VALUES(?, ?, ?)`)
-	if err != nil {
-		return err
-	}
-	data, err := json.Marshal(fce)
-	if err != nil {
-		return err
-	}
-	_, err = statement.Exec(fce.ID.String(), "contract", data)
-	return err
-}
-
-func (s *SqliteStore) RemoveElement(id types.ElementID) error {
-	statement, err := s.db.Prepare(`DELETE FROM elements WHERE id=?`)
-	if err != nil {
-		return err
-	}
-	_, err = statement.Exec(id.String())
-	return err
+	return &Transaction{tx}, nil
 }
 
 func (s *SqliteStore) SiacoinElement(id types.ElementID) (sce types.SiacoinElement, err error) {
-	row := s.db.QueryRow(`SELECT data FROM elements WHERE id=? AND type=?`, id.String(), "siacoin")
+	row := s.QueryRow(`SELECT data FROM elements WHERE id=? AND type=?`, id.String(), "siacoin")
 
 	var data []byte
 	if err = row.Scan(&data); err != nil {
@@ -117,7 +82,7 @@ func (s *SqliteStore) SiacoinElement(id types.ElementID) (sce types.SiacoinEleme
 }
 
 func (s *SqliteStore) SiafundElement(id types.ElementID) (sfe types.SiafundElement, err error) {
-	row := s.db.QueryRow(`SELECT data FROM elements WHERE id=? AND type=?`, id.String(), "siafund")
+	row := s.QueryRow(`SELECT data FROM elements WHERE id=? AND type=?`, id.String(), "siafund")
 
 	var data []byte
 	if err = row.Scan(&data); err != nil {
@@ -130,7 +95,7 @@ func (s *SqliteStore) SiafundElement(id types.ElementID) (sfe types.SiafundEleme
 }
 
 func (s *SqliteStore) FileContractElement(id types.ElementID) (fce types.FileContractElement, err error) {
-	row := s.db.QueryRow(`SELECT data FROM elements WHERE id=? AND type=?`, id.String(), "contract")
+	row := s.QueryRow(`SELECT data FROM elements WHERE id=? AND type=?`, id.String(), "contract")
 
 	var data []byte
 	if err = row.Scan(&data); err != nil {
@@ -143,7 +108,7 @@ func (s *SqliteStore) FileContractElement(id types.ElementID) (fce types.FileCon
 }
 
 func (s *SqliteStore) ChainStats(index types.ChainIndex) (stats explorer.ChainStats, err error) {
-	row := s.db.QueryRow(`SELECT data FROM chainstats WHERE id=?`, index.String())
+	row := s.QueryRow(`SELECT data FROM chainstats WHERE id=?`, index.String())
 
 	var data []byte
 	if err = row.Scan(&data); err != nil {
@@ -155,62 +120,13 @@ func (s *SqliteStore) ChainStats(index types.ChainIndex) (stats explorer.ChainSt
 	return
 }
 
-func (s *SqliteStore) AddChainStats(index types.ChainIndex, stats explorer.ChainStats) error {
-	statement, err := s.db.Prepare(`INSERT INTO chainstats(id, data) VALUES(?, ?)`)
-	if err != nil {
-		return err
-	}
-	data, err := json.Marshal(stats)
-	if err != nil {
-		return err
-	}
-	_, err = statement.Exec(index.String(), data)
-	return err
-}
-
-func (s *SqliteStore) AddUnspentSiacoinElement(address types.Address, id types.ElementID) error {
-	statement, err := s.db.Prepare(`INSERT INTO unspentElements(address, type, id) VALUES(?, ?, ?)`)
-	if err != nil {
-		return err
-	}
-	_, err = statement.Exec(address.String(), "siacoin", id.String())
-	return err
-}
-
-func (s *SqliteStore) AddUnspentSiafundElement(address types.Address, id types.ElementID) error {
-	statement, err := s.db.Prepare(`INSERT INTO unspentElements(address, type, id) VALUES(?, ?, ?)`)
-	if err != nil {
-		return err
-	}
-	_, err = statement.Exec(address.String(), "siafund", id.String())
-	return err
-}
-
-func (s *SqliteStore) RemoveUnspentSiacoinElement(address types.Address, id types.ElementID) error {
-	statement, err := s.db.Prepare(`DELETE FROM unspentElements WHERE id=? AND type=?`)
-	if err != nil {
-		return err
-	}
-	_, err = statement.Exec(id.String(), "siacoin")
-	return err
-}
-
-func (s *SqliteStore) RemoveUnspentSiafundElement(address types.Address, id types.ElementID) error {
-	statement, err := s.db.Prepare(`DELETE FROM unspentElements WHERE id=? AND type=?`)
-	if err != nil {
-		return err
-	}
-	_, err = statement.Exec(id.String(), "siafund")
-	return err
-}
-
 func parseElementID(str string) (id types.ElementID, err error) {
 	_, err = fmt.Sscanf(str, "h:%v:%v", &id.Source, &id.Index)
 	return
 }
 
 func (s *SqliteStore) UnspentSiacoinElements(address types.Address) ([]types.ElementID, error) {
-	rows, err := s.db.Query(`SELECT data FROM unspentElements WHERE id=? AND type=?`, address.String(), "siacoin")
+	rows, err := s.Query(`SELECT data FROM unspentElements WHERE address=? AND type=?`, address.String(), "siacoin")
 	if err != nil {
 		return nil, err
 	}
@@ -233,7 +149,7 @@ func (s *SqliteStore) UnspentSiacoinElements(address types.Address) ([]types.Ele
 }
 
 func (s *SqliteStore) UnspentSiafundElements(address types.Address) ([]types.ElementID, error) {
-	rows, err := s.db.Query(`SELECT data FROM unspentElements WHERE id=? AND type=?`, address.String(), "siafund")
+	rows, err := s.Query(`SELECT data FROM unspentElements WHERE address=? AND type=?`, address.String(), "siafund")
 	if err != nil {
 		return nil, err
 	}
@@ -256,7 +172,7 @@ func (s *SqliteStore) UnspentSiafundElements(address types.Address) ([]types.Ele
 }
 
 func (s *SqliteStore) Transaction(id types.TransactionID) (txn types.Transaction, err error) {
-	row := s.db.QueryRow(`SELECT data FROM transactions WHERE id=?`, id.String())
+	row := s.QueryRow(`SELECT data FROM transactions WHERE id=?`, id.String())
 
 	var data []byte
 	if err = row.Scan(&data); err != nil {
@@ -268,33 +184,8 @@ func (s *SqliteStore) Transaction(id types.TransactionID) (txn types.Transaction
 	return
 }
 
-func (s *SqliteStore) AddTransaction(txn types.Transaction, addresses []types.Address, block types.ChainIndex) error {
-	statement, err := s.db.Prepare(`INSERT INTO transactions(id, data) VALUES(?, ?)`)
-	if err != nil {
-		return err
-	}
-	data, err := json.Marshal(txn)
-	if err != nil {
-		return err
-	}
-	if _, err = statement.Exec(txn.ID().String(), data); err != nil {
-		return err
-	}
-
-	for _, address := range addresses {
-		statement, err := s.db.Prepare(`INSERT INTO addressTransactions(address, id) VALUES(?, ?)`)
-		if err != nil {
-			return err
-		}
-		if _, err = statement.Exec(address.String(), txn.ID()); err != nil {
-			return err
-		}
-	}
-	return err
-}
-
 func (s *SqliteStore) Transactions(address types.Address, amount int) ([]types.TransactionID, error) {
-	rows, err := s.db.Query(`SELECT id FROM addressTransactions WHERE address=? LIMIT 0,?`, address.String(), amount)
+	rows, err := s.Query(`SELECT id FROM addressTransactions WHERE address=? LIMIT 0,?`, address.String(), amount)
 	if err != nil {
 		return nil, err
 	}
@@ -318,4 +209,137 @@ func (s *SqliteStore) Transactions(address types.Address, amount int) ([]types.T
 		ids = append(ids, id)
 	}
 	return ids, rows.Err()
+}
+
+func (tx *Transaction) AddSiacoinElement(sce types.SiacoinElement) error {
+	statement, err := tx.Prepare(`INSERT INTO elements(id, type, data) VALUES(?, ?, ?)`)
+	if err != nil {
+		return err
+	}
+	defer statement.Close()
+	data, err := json.Marshal(sce)
+	if err != nil {
+		return err
+	}
+	_, err = statement.Exec(sce.ID.String(), "siacoin", data)
+	return err
+}
+
+func (tx *Transaction) AddSiafundElement(sfe types.SiafundElement) error {
+	statement, err := tx.Prepare(`INSERT INTO elements(id, type, data) VALUES(?, ?, ?)`)
+	if err != nil {
+		return err
+	}
+	defer statement.Close()
+	data, err := json.Marshal(sfe)
+	if err != nil {
+		return err
+	}
+	_, err = statement.Exec(sfe.ID.String(), "siafund", data)
+	return err
+}
+
+func (tx *Transaction) AddFileContractElement(fce types.FileContractElement) error {
+	statement, err := tx.Prepare(`INSERT INTO elements(id, type, data) VALUES(?, ?, ?)`)
+	if err != nil {
+		return err
+	}
+	defer statement.Close()
+	data, err := json.Marshal(fce)
+	if err != nil {
+		return err
+	}
+	_, err = statement.Exec(fce.ID.String(), "contract", data)
+	return err
+}
+
+func (tx *Transaction) RemoveElement(id types.ElementID) error {
+	statement, err := tx.Prepare(`DELETE FROM elements WHERE id=?`)
+	if err != nil {
+		return err
+	}
+	defer statement.Close()
+	_, err = statement.Exec(id.String())
+	return err
+}
+
+func (tx *Transaction) AddChainStats(index types.ChainIndex, stats explorer.ChainStats) error {
+	statement, err := tx.Prepare(`INSERT INTO chainstats(id, data) VALUES(?, ?)`)
+	if err != nil {
+		return err
+	}
+	defer statement.Close()
+	data, err := json.Marshal(stats)
+	if err != nil {
+		return err
+	}
+	_, err = statement.Exec(index.String(), data)
+	return err
+}
+
+func (tx *Transaction) AddUnspentSiacoinElement(address types.Address, id types.ElementID) error {
+	statement, err := tx.Prepare(`INSERT INTO unspentElements(address, type, id) VALUES(?, ?, ?)`)
+	if err != nil {
+		return err
+	}
+	defer statement.Close()
+	_, err = statement.Exec(address.String(), "siacoin", id.String())
+	return err
+}
+
+func (tx *Transaction) AddUnspentSiafundElement(address types.Address, id types.ElementID) error {
+	statement, err := tx.Prepare(`INSERT INTO unspentElements(address, type, id) VALUES(?, ?, ?)`)
+	if err != nil {
+		return err
+	}
+	defer statement.Close()
+	_, err = statement.Exec(address.String(), "siafund", id.String())
+	return err
+}
+
+func (tx *Transaction) RemoveUnspentSiacoinElement(address types.Address, id types.ElementID) error {
+	statement, err := tx.Prepare(`DELETE FROM unspentElements WHERE address=? AND id=? AND type=?`)
+	if err != nil {
+		return err
+	}
+	defer statement.Close()
+	_, err = statement.Exec(address.String(), id.String(), "siacoin")
+	return err
+}
+
+func (tx *Transaction) RemoveUnspentSiafundElement(address types.Address, id types.ElementID) error {
+	statement, err := tx.Prepare(`DELETE FROM unspentElements WHERE address=? AND id=? AND type=?`)
+	if err != nil {
+		return err
+	}
+	defer statement.Close()
+	_, err = statement.Exec(address.String(), id.String(), "siafund")
+	return err
+}
+
+func (tx *Transaction) AddTransaction(txn types.Transaction, addresses []types.Address, block types.ChainIndex) error {
+	statement, err := tx.Prepare(`INSERT INTO transactions(id, data) VALUES(?, ?)`)
+	if err != nil {
+		return err
+	}
+	defer statement.Close()
+	data, err := json.Marshal(txn)
+	if err != nil {
+		return err
+	}
+	if _, err = statement.Exec(txn.ID().String(), data); err != nil {
+		return err
+	}
+
+	for _, address := range addresses {
+		statement, err := tx.Prepare(`INSERT INTO addressTransactions(address, id) VALUES(?, ?)`)
+		if err != nil {
+			return err
+		}
+		defer statement.Close()
+		if _, err = statement.Exec(address.String(), txn.ID()); err != nil {
+			return err
+		}
+	}
+	return err
 }
