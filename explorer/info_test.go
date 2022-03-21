@@ -79,7 +79,6 @@ func TestSiacoinElements(t *testing.T) {
 		if !w.Balance().Equals(elem.Value) {
 			t.Fatal("output value doesn't equal balance")
 		}
-
 		txns, err := e.Transactions(w.Address(), math.MaxInt64)
 		if err != nil {
 			t.Fatal(err)
@@ -90,6 +89,12 @@ func TestSiacoinElements(t *testing.T) {
 		if txn.ID() != txns[0] {
 			t.Fatal("wrong transaction")
 		}
-
+		txns0, err := e.Transaction(txns[0])
+		if err != nil {
+			t.Fatal(err)
+		}
+		if txn.ID() != txns0.ID() {
+			t.Fatal("wrong transaction")
+		}
 	}
 }

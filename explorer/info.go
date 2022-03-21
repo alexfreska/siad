@@ -29,6 +29,49 @@ type ChainStats struct {
 	TotalRevisionVolume uint64
 }
 
+func (cs ChainStats) EncodeTo(e *types.Encoder) {
+	cs.Block.Header.EncodeTo(e)
+	for _, txn := range cs.Block.Transactions {
+		txn.EncodeTo(e)
+	}
+	cs.ValidationContext.EncodeTo(e)
+	e.WriteUint64(cs.SpentSiacoinsCount)
+	e.WriteUint64(cs.SpentSiafundsCount)
+	e.WriteUint64(cs.NewSiacoinsCount)
+	e.WriteUint64(cs.NewSiafundsCount)
+	e.WriteUint64(cs.NewFileContractsCount)
+	e.WriteUint64(cs.RevisedFileContractsCount)
+	e.WriteUint64(cs.ResolvedFileContractsCount)
+	cs.ActiveContractCost.EncodeTo(e)
+	e.WriteUint64(cs.ActiveContractCount)
+	e.WriteUint64(cs.ActiveContractSize)
+	cs.TotalContractCost.EncodeTo(e)
+	e.WriteUint64(cs.TotalContractSize)
+	e.WriteUint64(cs.TotalRevisionVolume)
+}
+
+func (cs *ChainStats) DecodeFrom(d *types.Decoder) {
+	cs.Block.Header.DecodeFrom(d)
+	cs.Block.Transactions = make([]types.Transaction, d.ReadPrefix())
+	for i := range cs.Block.Transactions {
+		cs.Block.Transactions[i].DecodeFrom(d)
+	}
+	cs.ValidationContext.DecodeFrom(d)
+	cs.SpentSiacoinsCount = d.ReadUint64()
+	cs.SpentSiafundsCount = d.ReadUint64()
+	cs.NewSiacoinsCount = d.ReadUint64()
+	cs.NewSiafundsCount = d.ReadUint64()
+	cs.NewFileContractsCount = d.ReadUint64()
+	cs.RevisedFileContractsCount = d.ReadUint64()
+	cs.ResolvedFileContractsCount = d.ReadUint64()
+	cs.ActiveContractCost.DecodeFrom(d)
+	cs.ActiveContractCount = d.ReadUint64()
+	cs.ActiveContractSize = d.ReadUint64()
+	cs.TotalContractCost.DecodeFrom(d)
+	cs.TotalContractSize = d.ReadUint64()
+	cs.TotalRevisionVolume = d.ReadUint64()
+}
+
 // ChainStatsLatest returns stats about the latest black.
 func (e *Explorer) ChainStatsLatest() (ChainStats, error) {
 	return e.ChainStats(e.vc.Index)

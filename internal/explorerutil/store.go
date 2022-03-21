@@ -1,11 +1,13 @@
 package explorerutil
 
 import (
+	"bytes"
 	"context"
 	"database/sql"
 	"encoding/hex"
-	"encoding/json"
 	"fmt"
+	"io"
+	"math"
 	"strings"
 
 	"go.sia.tech/core/types"
@@ -75,6 +77,12 @@ func (s *SqliteStore) Commit() error {
 	return nil
 }
 
+func decode(obj types.DecoderFrom, data []byte) error {
+	d := types.NewDecoder(io.LimitedReader{R: bytes.NewReader(data), N: math.MaxInt64})
+	obj.DecodeFrom(d)
+	return d.Err()
+}
+
 func (s *SqliteStore) SiacoinElement(id types.ElementID) (sce types.SiacoinElement, err error) {
 	row := s.tx.QueryRow(`SELECT data FROM elements WHERE id=? AND type=?`, id.String(), "siacoin")
 
@@ -82,7 +90,7 @@ func (s *SqliteStore) SiacoinElement(id types.ElementID) (sce types.SiacoinEleme
 	if err = row.Scan(&data); err != nil {
 		return
 	}
-	err = json.Unmarshal(data, &sce)
+	err = decode(&sce, data)
 	return
 }
 
@@ -93,9 +101,7 @@ func (s *SqliteStore) SiafundElement(id types.ElementID) (sfe types.SiafundEleme
 	if err = row.Scan(&data); err != nil {
 		return
 	}
-	if err = json.Unmarshal(data, &sfe); err != nil {
-		return
-	}
+	err = decode(&sfe, data)
 	return
 }
 
@@ -106,22 +112,18 @@ func (s *SqliteStore) FileContractElement(id types.ElementID) (fce types.FileCon
 	if err = row.Scan(&data); err != nil {
 		return
 	}
-	if err = json.Unmarshal(data, &fce); err != nil {
-		return
-	}
+	err = decode(&fce, data)
 	return
 }
 
-func (s *SqliteStore) ChainStats(index types.ChainIndex) (stats explorer.ChainStats, err error) {
+func (s *SqliteStore) ChainStats(index types.ChainIndex) (cs explorer.ChainStats, err error) {
 	row := s.tx.QueryRow(`SELECT data FROM chainstats WHERE id=?`, index.String())
 
 	var data []byte
 	if err = row.Scan(&data); err != nil {
 		return
 	}
-	if err = json.Unmarshal(data, &stats); err != nil {
-		return
-	}
+	err = decode(&cs, data)
 	return
 }
 
@@ -183,9 +185,7 @@ func (s *SqliteStore) Transaction(id types.TransactionID) (txn types.Transaction
 	if err = row.Scan(&data); err != nil {
 		return
 	}
-	if err = json.Unmarshal(data, &txn); err != nil {
-		return
-	}
+	err = decode(&txn, data)
 	return
 }
 
@@ -216,13 +216,23 @@ func (s *SqliteStore) Transactions(address types.Address, amount int) ([]types.T
 	return ids, rows.Err()
 }
 
+func encode(obj types.EncoderTo) ([]byte, error) {
+	var buf bytes.Buffer
+	e := types.NewEncoder(&buf)
+	obj.EncodeTo(e)
+	if err := e.Flush(); err != nil {
+		return nil, err
+	}
+	return buf.Bytes(), nil
+}
+
 func (s *SqliteStore) AddSiacoinElement(sce types.SiacoinElement) error {
 	statement, err := s.tx.Prepare(`INSERT INTO elements(id, type, data) VALUES(?, ?, ?)`)
 	if err != nil {
 		return err
 	}
 	defer statement.Close()
-	data, err := json.Marshal(sce)
+	data, err := encode(sce)
 	if err != nil {
 		return err
 	}
@@ -236,7 +246,7 @@ func (s *SqliteStore) AddSiafundElement(sfe types.SiafundElement) error {
 		return err
 	}
 	defer statement.Close()
-	data, err := json.Marshal(sfe)
+	data, err := encode(sfe)
 	if err != nil {
 		return err
 	}
@@ -250,7 +260,7 @@ func (s *SqliteStore) AddFileContractElement(fce types.FileContractElement) erro
 		return err
 	}
 	defer statement.Close()
-	data, err := json.Marshal(fce)
+	data, err := encode(fce)
 	if err != nil {
 		return err
 	}
@@ -268,13 +278,13 @@ func (s *SqliteStore) RemoveElement(id types.ElementID) error {
 	return err
 }
 
-func (s *SqliteStore) AddChainStats(index types.ChainIndex, stats explorer.ChainStats) error {
+func (s *SqliteStore) AddChainStats(index types.ChainIndex, cs explorer.ChainStats) error {
 	statement, err := s.tx.Prepare(`INSERT INTO chainstats(id, data) VALUES(?, ?)`)
 	if err != nil {
 		return err
 	}
 	defer statement.Close()
-	data, err := json.Marshal(stats)
+	data, err := encode(cs)
 	if err != nil {
 		return err
 	}
@@ -328,7 +338,7 @@ func (s *SqliteStore) AddTransaction(txn types.Transaction, addresses []types.Ad
 		return err
 	}
 	defer statement.Close()
-	data, err := json.Marshal(txn)
+	data, err := encode(txn)
 	if err != nil {
 		return err
 	}
