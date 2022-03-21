@@ -4,7 +4,7 @@ go 1.17
 
 require (
 	github.com/julienschmidt/httprouter v1.3.0
-	go.sia.tech/core v0.0.0-20220225220926-7706db51964f
+	go.sia.tech/core v0.0.0-20220319203950-5230625dc550
 	golang.org/x/crypto v0.0.0-20211209193657-4570a0811e8b
 	lukechampine.com/flagg v1.1.1
 	lukechampine.com/frand v1.4.2
@@ -12,8 +12,10 @@ require (
 )
 
 require (
+	filippo.io/edwards25519 v1.0.0-rc.1 // indirect
 	github.com/aead/chacha20 v0.0.0-20180709150244-8b13a72661da // indirect
 	github.com/google/uuid v1.3.0 // indirect
+	github.com/hdevalence/ed25519consensus v0.0.0-20220222234857-c00d1f31bab3 // indirect
 	github.com/kballard/go-shellquote v0.0.0-20180428030007-95032a82bc51 // indirect
 	github.com/mattn/go-isatty v0.0.12 // indirect
 	github.com/remyoudompheng/bigfft v0.0.0-20200410134404-eec4a21b6bb0 // indirect

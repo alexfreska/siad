@@ -41,14 +41,14 @@ func (e *Explorer) ChainStats(index types.ChainIndex) (ChainStats, error) {
 
 // SiacoinBalance returns the siacoin balance of an address.
 func (e *Explorer) SiacoinBalance(address types.Address) (types.Currency, error) {
-	ids, err := e.db.UnspentSiacoinElements(address)
+	ids, err := e.UnspentSiacoinElements(address)
 	if err != nil {
 		return types.Currency{}, err
 	}
 
 	var sum types.Currency
 	for _, id := range ids {
-		elem, err := e.db.SiacoinElement(id)
+		elem, err := e.SiacoinElement(id)
 		if err != nil {
 			return types.Currency{}, err
 		}
@@ -59,14 +59,14 @@ func (e *Explorer) SiacoinBalance(address types.Address) (types.Currency, error)
 
 // SiafundBalance returns the siafund balance of an address.
 func (e *Explorer) SiafundBalance(address types.Address) (uint64, error) {
-	ids, err := e.db.UnspentSiafundElements(address)
+	ids, err := e.UnspentSiafundElements(address)
 	if err != nil {
 		return 0, err
 	}
 
 	var sum uint64
 	for _, id := range ids {
-		elem, err := e.db.SiafundElement(id)
+		elem, err := e.SiafundElement(id)
 		if err != nil {
 			return 0, err
 		}

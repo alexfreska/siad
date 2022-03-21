@@ -56,11 +56,11 @@ func newNode(addr, dir string, c consensus.Checkpoint) (*node, error) {
 	if err := os.MkdirAll(explorerDir, 0700); err != nil {
 		return nil, err
 	}
-	store, err := explorerutil.NewStore(explorerDir)
+	store, err := explorerutil.NewStore(filepath.Join(explorerDir, "store.db"))
 	if err != nil {
 		return nil, err
 	}
-	e := explorer.New(tip.Context, store)
+	e := explorer.NewExplorer(tip.Context, store)
 	cm.AddSubscriber(e, tip.Context.Index)
 
 	p2pDir := filepath.Join(dir, "p2p")
