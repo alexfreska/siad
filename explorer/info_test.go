@@ -1,7 +1,9 @@
 package explorer_test
 
 import (
+	"encoding/binary"
 	"math"
+	"reflect"
 	"testing"
 
 	"go.sia.tech/core/chain"
@@ -12,6 +14,13 @@ import (
 	"go.sia.tech/siad/v2/internal/walletutil"
 	"go.sia.tech/siad/v2/wallet"
 )
+
+func testingKeypair(seed uint64) (types.PublicKey, types.PrivateKey) {
+	var b [32]byte
+	binary.LittleEndian.PutUint64(b[:], seed)
+	privkey := types.NewPrivateKeyFromSeed(b)
+	return privkey.PublicKey(), privkey
+}
 
 func TestSiacoinElements(t *testing.T) {
 	sim := chainutil.NewChainSim()
@@ -96,5 +105,210 @@ func TestSiacoinElements(t *testing.T) {
 		if txn.ID() != txns0.ID() {
 			t.Fatal("wrong transaction")
 		}
+	}
+}
+
+func TestChainStatsSiacoins(t *testing.T) {
+	sim := chainutil.NewChainSim()
+	cm := chain.NewManager(chainutil.NewEphemeralStore(sim.Genesis), sim.Context)
+
+	explorerStore, err := explorerutil.NewStore(":memory:")
+	if err != nil {
+		t.Fatal(err)
+	}
+	e := explorer.NewExplorer(sim.Genesis.Context, explorerStore)
+	cm.AddSubscriber(e, cm.Tip())
+
+	walletStore := walletutil.NewEphemeralStore()
+	cm.AddSubscriber(walletStore, cm.Tip())
+	w := wallet.NewHotWallet(walletStore, wallet.NewSeed())
+
+	// fund the wallet with 100 coins
+	ourAddr := w.NextAddress()
+	fund := types.SiacoinOutput{Value: types.Siacoins(100), Address: ourAddr}
+	if err := cm.AddTipBlock(sim.MineBlockWithSiacoinOutputs(fund)); err != nil {
+		t.Fatal(err)
+	}
+
+	// empty block with nothing beside miner reward
+	if err := cm.AddTipBlock(sim.MineBlockWithTxns()); err != nil {
+		t.Fatal(err)
+	}
+	stats, err := e.ChainStatsLatest()
+	if err != nil {
+		t.Fatal(err)
+	}
+	expected := explorer.ChainStats{
+		// don't compare these
+		Block:             stats.Block,
+		ValidationContext: stats.ValidationContext,
+
+		SpentSiacoinsCount:         0,
+		SpentSiafundsCount:         0,
+		NewSiacoinsCount:           1,
+		NewSiafundsCount:           0,
+		NewFileContractsCount:      0,
+		RevisedFileContractsCount:  0,
+		ResolvedFileContractsCount: 0,
+		ActiveContractCost:         types.ZeroCurrency,
+		ActiveContractCount:        0,
+		ActiveContractSize:         0,
+		TotalContractCost:          types.ZeroCurrency,
+		TotalContractSize:          0,
+		TotalRevisionVolume:        0,
+	}
+	if !reflect.DeepEqual(stats, expected) {
+		t.Fatal("chainstats don't match")
+	}
+
+	for i := 0; i < 5; i++ {
+		sendAmount := types.Siacoins(7)
+		txn := types.Transaction{
+			SiacoinOutputs: []types.SiacoinOutput{{
+				Address: types.VoidAddress,
+				Value:   sendAmount,
+			}},
+		}
+		if toSign, _, err := w.FundTransaction(&txn, sendAmount, nil); err != nil {
+			t.Fatal(err)
+		} else if err := w.SignTransaction(sim.Context, &txn, toSign); err != nil {
+			t.Fatal(err)
+		}
+
+		if err := cm.AddTipBlock(sim.MineBlockWithTxns(txn)); err != nil {
+			t.Fatal(err)
+		}
+
+		stats, err := e.ChainStatsLatest()
+		if err != nil {
+			t.Fatal(err)
+		}
+		expected := explorer.ChainStats{
+			// don't compare these
+			Block:             stats.Block,
+			ValidationContext: stats.ValidationContext,
+
+			SpentSiacoinsCount:         1,
+			SpentSiafundsCount:         0,
+			NewSiacoinsCount:           3,
+			NewSiafundsCount:           0,
+			NewFileContractsCount:      0,
+			RevisedFileContractsCount:  0,
+			ResolvedFileContractsCount: 0,
+			ActiveContractCost:         types.ZeroCurrency,
+			ActiveContractCount:        0,
+			ActiveContractSize:         0,
+			TotalContractCost:          types.ZeroCurrency,
+			TotalContractSize:          0,
+			TotalRevisionVolume:        0,
+		}
+		if !reflect.DeepEqual(stats, expected) {
+			t.Fatal("chainstats don't match")
+		}
+	}
+}
+
+func TestChainStatsContracts(t *testing.T) {
+	sim := chainutil.NewChainSim()
+	cm := chain.NewManager(chainutil.NewEphemeralStore(sim.Genesis), sim.Context)
+
+	explorerStore, err := explorerutil.NewStore(":memory:")
+	if err != nil {
+		t.Fatal(err)
+	}
+	e := explorer.NewExplorer(sim.Genesis.Context, explorerStore)
+	cm.AddSubscriber(e, cm.Tip())
+
+	walletStore := walletutil.NewEphemeralStore()
+	cm.AddSubscriber(walletStore, cm.Tip())
+	w := wallet.NewHotWallet(walletStore, wallet.NewSeed())
+
+	ourAddr := w.NextAddress()
+	renterPubkey, renterPrivkey := testingKeypair(1)
+	hostPubkey, hostPrivkey := testingKeypair(2)
+	if err := cm.AddTipBlock(sim.MineBlockWithSiacoinOutputs(types.SiacoinOutput{Value: types.Siacoins(100), Address: ourAddr}, types.SiacoinOutput{Value: types.Siacoins(100), Address: types.StandardAddress(renterPubkey)}, types.SiacoinOutput{Value: types.Siacoins(7), Address: types.StandardAddress(hostPubkey)})); err != nil {
+		t.Fatal(err)
+	}
+
+	renterOutputs, err := e.UnspentSiacoinElements(types.StandardAddress(renterPubkey))
+	if err != nil {
+		t.Fatal(err)
+	}
+	renterOutput, err := e.SiacoinElement(renterOutputs[0])
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	hostOutputs, err := e.UnspentSiacoinElements(types.StandardAddress(hostPubkey))
+	if err != nil {
+		t.Fatal(err)
+	}
+	hostOutput, err := e.SiacoinElement(hostOutputs[0])
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// form initial contract
+	initialRev := types.FileContract{
+		WindowStart: 5,
+		WindowEnd:   10,
+		RenterOutput: types.SiacoinOutput{
+			Address: types.StandardAddress(renterPubkey),
+			Value:   types.Siacoins(58),
+		},
+		HostOutput: types.SiacoinOutput{
+			Address: types.StandardAddress(hostPubkey),
+			Value:   types.Siacoins(19),
+		},
+		MissedHostValue: types.Siacoins(17),
+		TotalCollateral: types.Siacoins(18),
+		RenterPublicKey: renterPubkey,
+		HostPublicKey:   hostPubkey,
+	}
+	outputSum := initialRev.RenterOutput.Value.Add(initialRev.HostOutput.Value).Add(cm.TipContext().FileContractTax(initialRev))
+	txn := types.Transaction{
+		SiacoinInputs: []types.SiacoinInput{
+			{Parent: renterOutput, SpendPolicy: types.PolicyPublicKey(renterPubkey)},
+			{Parent: hostOutput, SpendPolicy: types.PolicyPublicKey(hostPubkey)},
+		},
+		FileContracts: []types.FileContract{initialRev},
+		MinerFee:      renterOutput.Value.Add(hostOutput.Value).Sub(outputSum),
+	}
+	fc := &txn.FileContracts[0]
+	contractHash := cm.TipContext().ContractSigHash(*fc)
+	fc.RenterSignature = renterPrivkey.SignHash(contractHash)
+	fc.HostSignature = hostPrivkey.SignHash(contractHash)
+	sigHash := cm.TipContext().InputSigHash(txn)
+	txn.SiacoinInputs[0].Signatures = []types.Signature{renterPrivkey.SignHash(sigHash)}
+	txn.SiacoinInputs[1].Signatures = []types.Signature{hostPrivkey.SignHash(sigHash)}
+
+	if err := cm.AddTipBlock(sim.MineBlockWithTxns(txn)); err != nil {
+		t.Fatal(err)
+	}
+	stats, err := e.ChainStatsLatest()
+	if err != nil {
+		t.Fatal(err)
+	}
+	expected := explorer.ChainStats{
+		// don't compare these
+		Block:             stats.Block,
+		ValidationContext: stats.ValidationContext,
+
+		SpentSiacoinsCount:         2,
+		SpentSiafundsCount:         0,
+		NewSiacoinsCount:           1,
+		NewSiafundsCount:           0,
+		NewFileContractsCount:      1,
+		RevisedFileContractsCount:  0,
+		ResolvedFileContractsCount: 0,
+		ActiveContractCost:         types.Siacoins(35),
+		ActiveContractCount:        1,
+		ActiveContractSize:         0,
+		TotalContractCost:          types.Siacoins(35),
+		TotalContractSize:          0,
+		TotalRevisionVolume:        0,
+	}
+	if !reflect.DeepEqual(stats, expected) {
+		t.Fatal("chainstats don't match")
 	}
 }

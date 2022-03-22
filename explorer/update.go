@@ -148,6 +148,7 @@ func (e *Explorer) ProcessChainApplyUpdate(cau *chain.ApplyUpdate, mayCommit boo
 		}
 		stats.NewFileContractsCount++
 		payout := elem.FileContract.MissedHostValue.Add(elem.FileContract.TotalCollateral)
+		stats.ActiveContractCount++
 		stats.ActiveContractCost = stats.ActiveContractCost.Add(payout)
 		stats.ActiveContractSize += elem.FileContract.Filesize
 		stats.TotalContractCost = stats.TotalContractCost.Add(payout)

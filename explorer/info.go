@@ -31,6 +31,7 @@ type ChainStats struct {
 
 func (cs ChainStats) EncodeTo(e *types.Encoder) {
 	cs.Block.Header.EncodeTo(e)
+	e.WritePrefix(len(cs.Block.Transactions))
 	for _, txn := range cs.Block.Transactions {
 		txn.EncodeTo(e)
 	}
