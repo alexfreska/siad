@@ -321,14 +321,23 @@ func (s *server) explorerBatchAddressesSiacoinsHandler(w http.ResponseWriter, re
 		return
 	}
 
-	var elems [][]types.ElementID
+	var elems [][]types.SiacoinElement
 	for _, address := range addresses {
 		ids, err := s.e.UnspentSiacoinElements(address)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
-		elems = append(elems, ids)
+		var elemsList []types.SiacoinElement
+		for _, id := range ids {
+			elem, err := s.e.SiacoinElement(id)
+			if err != nil {
+				http.Error(w, err.Error(), http.StatusBadRequest)
+				return
+			}
+			elemsList = append(elemsList, elem)
+		}
+		elems = append(elems, elemsList)
 	}
 	api.WriteJSON(w, elems)
 }
@@ -340,14 +349,23 @@ func (s *server) explorerBatchAddressesSiafundsHandler(w http.ResponseWriter, re
 		return
 	}
 
-	var elems [][]types.ElementID
+	var elems [][]types.SiafundElement
 	for _, address := range addresses {
 		ids, err := s.e.UnspentSiafundElements(address)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
-		elems = append(elems, ids)
+		var elemsList []types.SiafundElement
+		for _, id := range ids {
+			elem, err := s.e.SiafundElement(id)
+			if err != nil {
+				http.Error(w, err.Error(), http.StatusBadRequest)
+				return
+			}
+			elemsList = append(elemsList, elem)
+		}
+		elems = append(elems, elemsList)
 	}
 	api.WriteJSON(w, elems)
 }
@@ -359,14 +377,23 @@ func (s *server) explorerBatchAddressesTransactionsHandler(w http.ResponseWriter
 		return
 	}
 
-	var txns [][]types.TransactionID
+	var txns [][]types.Transaction
 	for _, etr := range etrs {
 		ids, err := s.e.Transactions(etr.Address, etr.Amount)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
-		txns = append(txns, ids)
+		var txnsList []types.Transaction
+		for _, id := range ids {
+			txn, err := s.e.Transaction(id)
+			if err != nil {
+				http.Error(w, err.Error(), http.StatusBadRequest)
+				return
+			}
+			txnsList = append(txnsList, txn)
+		}
+		txns = append(txns, txnsList)
 	}
 	api.WriteJSON(w, txns)
 }

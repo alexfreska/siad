@@ -148,19 +148,19 @@ func (c *Client) ExplorerBatchBalance(addresses []types.Address) (resp []Explore
 }
 
 // ExplorerBatchSiacoins returns the unspent siacoin elements of the addresses.
-func (c *Client) ExplorerBatchSiacoins(addresses []types.Address) (resp [][]types.ElementID, err error) {
+func (c *Client) ExplorerBatchSiacoins(addresses []types.Address) (resp [][]types.SiacoinElement, err error) {
 	err = c.c.Post("/api/explorer/batch/addresses/siacoins", addresses, &resp)
 	return
 }
 
 // ExplorerBatchSiafunds returns the unspent siafund elements of the addresses.
-func (c *Client) ExplorerBatchSiafunds(addresses []types.Address) (resp [][]types.ElementID, err error) {
+func (c *Client) ExplorerBatchSiafunds(addresses []types.Address) (resp [][]types.SiafundElement, err error) {
 	err = c.c.Post("/api/explorer/batch/addresses/siafunds", addresses, &resp)
 	return
 }
 
 // ExplorerBatchTransactions returns the last n transactions of the addresses.
-func (c *Client) ExplorerBatchTransactions(addresses []ExplorerTransactionsRequest) (resp [][]types.ElementID, err error) {
+func (c *Client) ExplorerBatchTransactions(addresses []ExplorerTransactionsRequest) (resp [][]types.Transaction, err error) {
 	err = c.c.Post("/api/explorer/batch/addresses/transactions", addresses, &resp)
 	return
 }
