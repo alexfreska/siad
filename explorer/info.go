@@ -8,17 +8,11 @@ import (
 // ChainStats contains a bunch of statistics about the consensus set as they
 // were at a specific block.
 type ChainStats struct {
-	Block             types.Block
-	ValidationContext consensus.ValidationContext
+	Block types.Block
 
 	// Transaction type counts.
-	SpentSiacoinsCount         uint64
-	SpentSiafundsCount         uint64
-	NewSiacoinsCount           uint64
-	NewSiafundsCount           uint64
-	NewFileContractsCount      uint64
-	RevisedFileContractsCount  uint64
-	ResolvedFileContractsCount uint64
+	SpentSiacoinsCount uint64
+	SpentSiafundsCount uint64
 
 	// Facts about file contracts.
 	ActiveContractCost  types.Currency
@@ -35,14 +29,8 @@ func (cs ChainStats) EncodeTo(e *types.Encoder) {
 	for _, txn := range cs.Block.Transactions {
 		txn.EncodeTo(e)
 	}
-	cs.ValidationContext.EncodeTo(e)
 	e.WriteUint64(cs.SpentSiacoinsCount)
 	e.WriteUint64(cs.SpentSiafundsCount)
-	e.WriteUint64(cs.NewSiacoinsCount)
-	e.WriteUint64(cs.NewSiafundsCount)
-	e.WriteUint64(cs.NewFileContractsCount)
-	e.WriteUint64(cs.RevisedFileContractsCount)
-	e.WriteUint64(cs.ResolvedFileContractsCount)
 	cs.ActiveContractCost.EncodeTo(e)
 	e.WriteUint64(cs.ActiveContractCount)
 	e.WriteUint64(cs.ActiveContractSize)
@@ -57,14 +45,8 @@ func (cs *ChainStats) DecodeFrom(d *types.Decoder) {
 	for i := range cs.Block.Transactions {
 		cs.Block.Transactions[i].DecodeFrom(d)
 	}
-	cs.ValidationContext.DecodeFrom(d)
 	cs.SpentSiacoinsCount = d.ReadUint64()
 	cs.SpentSiafundsCount = d.ReadUint64()
-	cs.NewSiacoinsCount = d.ReadUint64()
-	cs.NewSiafundsCount = d.ReadUint64()
-	cs.NewFileContractsCount = d.ReadUint64()
-	cs.RevisedFileContractsCount = d.ReadUint64()
-	cs.ResolvedFileContractsCount = d.ReadUint64()
 	cs.ActiveContractCost.DecodeFrom(d)
 	cs.ActiveContractCount = d.ReadUint64()
 	cs.ActiveContractSize = d.ReadUint64()
@@ -133,8 +115,8 @@ func (e *Explorer) UnspentSiafundElements(address types.Address) ([]types.Elemen
 
 // Transactions returns the latest n transaction IDs associated with the
 // specified address.
-func (e *Explorer) Transactions(address types.Address, amount int) ([]types.TransactionID, error) {
-	return e.db.Transactions(address, amount)
+func (e *Explorer) Transactions(address types.Address, amount, offset int) ([]types.TransactionID, error) {
+	return e.db.Transactions(address, amount, offset)
 }
 
 // SiacoinElement returns the siacoin element associated with the specified ID.
@@ -155,4 +137,8 @@ func (e *Explorer) FileContractElement(id types.ElementID) (types.FileContractEl
 // Transaction returns the transaction with the given ID.
 func (e *Explorer) Transaction(id types.TransactionID) (types.Transaction, error) {
 	return e.db.Transaction(id)
+}
+
+func (e *Explorer) ValidationContext(index types.ChainIndex) (consensus.ValidationContext, error) {
+	return e.db.ValidationContext(index)
 }

@@ -45,7 +45,8 @@ type (
 		Transaction(id types.TransactionID) (types.Transaction, error)
 		UnspentSiacoinElements(address types.Address) ([]types.ElementID, error)
 		UnspentSiafundElements(address types.Address) ([]types.ElementID, error)
-		Transactions(address types.Address, amount int) ([]types.TransactionID, error)
+		Transactions(address types.Address, amount, offset int) ([]types.TransactionID, error)
+		ValidationContext(index types.ChainIndex) (context consensus.ValidationContext, err error)
 	}
 )
 
@@ -118,7 +119,7 @@ func (s *server) consensusTipHandler(w http.ResponseWriter, req *http.Request, _
 
 func (s *server) explorerElementSiacoinHandler(w http.ResponseWriter, req *http.Request, p httprouter.Params) {
 	var id types.ElementID
-	if err := json.Unmarshal([]byte(p.ByName("id")), &id); err != nil {
+	if err := id.UnmarshalText([]byte(p.ByName("id"))); err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
@@ -133,7 +134,7 @@ func (s *server) explorerElementSiacoinHandler(w http.ResponseWriter, req *http.
 
 func (s *server) explorerElementSiafundHandler(w http.ResponseWriter, req *http.Request, p httprouter.Params) {
 	var id types.ElementID
-	if err := json.Unmarshal([]byte(p.ByName("id")), &id); err != nil {
+	if err := id.UnmarshalText([]byte(p.ByName("id"))); err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
@@ -148,7 +149,7 @@ func (s *server) explorerElementSiafundHandler(w http.ResponseWriter, req *http.
 
 func (s *server) explorerElementContractHandler(w http.ResponseWriter, req *http.Request, p httprouter.Params) {
 	var id types.ElementID
-	if err := json.Unmarshal([]byte(p.ByName("id")), &id); err != nil {
+	if err := id.UnmarshalText([]byte(p.ByName("id"))); err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
@@ -186,9 +187,24 @@ func (s *server) explorerChainStatsHandler(w http.ResponseWriter, req *http.Requ
 	api.WriteJSON(w, facts)
 }
 
-func (s *server) explorerSearchHandler(w http.ResponseWriter, req *http.Request, p httprouter.Params) {
+func (s *server) explorerChainContextHandler(w http.ResponseWriter, req *http.Request, p httprouter.Params) {
+	var index types.ChainIndex
+	if err := json.Unmarshal([]byte(p.ByName("index")), &index); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	vc, err := s.e.ValidationContext(index)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	api.WriteJSON(w, vc)
+}
+
+func (s *server) explorerElementSearchHandler(w http.ResponseWriter, req *http.Request, p httprouter.Params) {
 	var id types.ElementID
-	if err := json.Unmarshal([]byte(p.ByName("id")), &id); err != nil {
+	if err := id.UnmarshalText([]byte(p.ByName("id"))); err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
@@ -197,12 +213,10 @@ func (s *server) explorerSearchHandler(w http.ResponseWriter, req *http.Request,
 	if elem, err := s.e.SiacoinElement(id); err == nil {
 		response.Type = "siacoin"
 		response.SiacoinElement = elem
-	}
-	if elem, err := s.e.SiafundElement(id); err == nil {
+	} else if elem, err := s.e.SiafundElement(id); err == nil {
 		response.Type = "siafund"
 		response.SiafundElement = elem
-	}
-	if elem, err := s.e.FileContractElement(id); err == nil {
+	} else if elem, err := s.e.FileContractElement(id); err == nil {
 		response.Type = "contract"
 		response.FileContractElement = elem
 	}
@@ -267,8 +281,13 @@ func (s *server) explorerAddressTransactionsHandler(w http.ResponseWriter, req *
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
+	offset, err := strconv.Atoi(req.FormValue("offset"))
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
 
-	ids, err := s.e.Transactions(address, amount)
+	ids, err := s.e.Transactions(address, amount, offset)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
@@ -379,7 +398,7 @@ func (s *server) explorerBatchAddressesTransactionsHandler(w http.ResponseWriter
 
 	var txns [][]types.Transaction
 	for _, etr := range etrs {
-		ids, err := s.e.Transactions(etr.Address, etr.Amount)
+		ids, err := s.e.Transactions(etr.Address, etr.Amount, etr.Offset)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
@@ -416,11 +435,12 @@ func NewServer(cm ChainManager, s Syncer, tp TransactionPool, e Explorer) http.H
 
 	mux.GET("/api/consensus/tip", srv.consensusTipHandler)
 
+	mux.GET("/api/explorer/element/search/:id", srv.explorerElementSearchHandler)
 	mux.GET("/api/explorer/element/siacoin/:id", srv.explorerElementSiacoinHandler)
 	mux.GET("/api/explorer/element/siafund/:id", srv.explorerElementSiafundHandler)
 	mux.GET("/api/explorer/element/contract/:id", srv.explorerElementContractHandler)
 	mux.GET("/api/explorer/chain/stats/:index", srv.explorerChainStatsHandler)
-	mux.GET("/api/explorer/search/:id", srv.explorerSearchHandler)
+	mux.GET("/api/explorer/chain/context/:index", srv.explorerChainContextHandler)
 	mux.GET("/api/explorer/transaction/:id", srv.explorerTransactionHandler)
 
 	mux.GET("/api/explorer/address/balance/:address", srv.explorerAddressBalanceHandler)

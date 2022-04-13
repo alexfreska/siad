@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 
+	"go.sia.tech/core/consensus"
 	"go.sia.tech/core/types"
 	"go.sia.tech/siad/v2/api"
 	"go.sia.tech/siad/v2/explorer"
@@ -46,31 +47,19 @@ func (c *Client) ConsensusTip() (resp ConsensusTipResponse, err error) {
 
 // ExplorerSiacoinElement gets the Siacoin element with the given ID.
 func (c *Client) ExplorerSiacoinElement(id types.ElementID) (resp types.SiacoinElement, err error) {
-	data, err := json.Marshal(id)
-	if err != nil {
-		return
-	}
-	err = c.c.Get(fmt.Sprintf("/api/explorer/element/siacoin/%s", string(data)), &resp)
+	err = c.c.Get(fmt.Sprintf("/api/explorer/element/siacoin/%s", id.String()), &resp)
 	return
 }
 
 // ExplorerSiafundElement gets the Siafund element with the given ID.
 func (c *Client) ExplorerSiafundElement(id types.ElementID) (resp types.SiafundElement, err error) {
-	data, err := json.Marshal(id)
-	if err != nil {
-		return
-	}
-	err = c.c.Get(fmt.Sprintf("/api/explorer/element/siafund/%s", string(data)), &resp)
+	err = c.c.Get(fmt.Sprintf("/api/explorer/element/siafund/%s", id.String()), &resp)
 	return
 }
 
 // ExplorerFileContractElement gets the file contract element with the given ID.
 func (c *Client) ExplorerFileContractElement(id types.ElementID) (resp types.FileContractElement, err error) {
-	data, err := json.Marshal(id)
-	if err != nil {
-		return
-	}
-	err = c.c.Get(fmt.Sprintf("/api/explorer/element/contract/%s", string(data)), &resp)
+	err = c.c.Get(fmt.Sprintf("/api/explorer/element/contract/%s", id.String()), &resp)
 	return
 }
 
@@ -90,18 +79,18 @@ func (c *Client) ExplorerChainStatsLatest() (resp explorer.ChainStats, err error
 	return
 }
 
-// ExplorerSearch gets information about a given element.
-func (c *Client) ExplorerSearch(id types.ElementID) (resp ExplorerSearchResponse, err error) {
+// ExplorerElementSearch gets information about a given element.
+func (c *Client) ExplorerElementSearch(id types.ElementID) (resp ExplorerSearchResponse, err error) {
 	data, err := json.Marshal(id)
 	if err != nil {
 		return
 	}
-	err = c.c.Get(fmt.Sprintf("/api/explorer/search/%s", string(data)), &resp)
+	err = c.c.Get(fmt.Sprintf("/api/explorer/element/search/%s", string(data)), &resp)
 	return
 }
 
 // ExplorerBalance gets the siacoin and siafund balance of an address.
-func (c *Client) ExplorerBalance(address types.Address) (resp ExplorerWalletBalanceResponse, err error) {
+func (c *Client) ExplorerAddressBalance(address types.Address) (resp ExplorerWalletBalanceResponse, err error) {
 	data, err := json.Marshal(address)
 	if err != nil {
 		return
@@ -132,12 +121,12 @@ func (c *Client) ExplorerSiafundOutputs(address types.Address) (resp []types.Sia
 
 // ExplorerTransactions gets the latest transaction IDs the address was
 // involved in.
-func (c *Client) ExplorerTransactions(address types.Address, amount int) (resp []types.ElementID, err error) {
+func (c *Client) ExplorerTransactions(address types.Address, amount, offset int) (resp []types.ElementID, err error) {
 	data, err := json.Marshal(address)
 	if err != nil {
 		return
 	}
-	err = c.c.Get(fmt.Sprintf("/api/explorer/address/transactions/%s?amount=%d", string(data), amount), &resp)
+	err = c.c.Get(fmt.Sprintf("/api/explorer/address/transactions/%s?amount=%d&offset=%d", string(data), amount, offset), &resp)
 	return
 }
 
@@ -162,6 +151,16 @@ func (c *Client) ExplorerBatchSiafunds(addresses []types.Address) (resp [][]type
 // ExplorerBatchTransactions returns the last n transactions of the addresses.
 func (c *Client) ExplorerBatchTransactions(addresses []ExplorerTransactionsRequest) (resp [][]types.Transaction, err error) {
 	err = c.c.Post("/api/explorer/batch/addresses/transactions", addresses, &resp)
+	return
+}
+
+// ExplorerChainContext returns the validation context at a given chain index.
+func (c *Client) ExplorerChainContext(index types.ChainIndex) (resp consensus.ValidationContext, err error) {
+	data, err := json.Marshal(index)
+	if err != nil {
+		return
+	}
+	err = c.c.Get(fmt.Sprintf("/api/explorer/chain/context/%s", string(data)), &resp)
 	return
 }
 

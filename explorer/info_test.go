@@ -2,6 +2,7 @@ package explorer_test
 
 import (
 	"encoding/binary"
+	"fmt"
 	"math"
 	"reflect"
 	"testing"
@@ -88,7 +89,7 @@ func TestSiacoinElements(t *testing.T) {
 		if !w.Balance().Equals(elem.Value) {
 			t.Fatal("output value doesn't equal balance")
 		}
-		txns, err := e.Transactions(w.Address(), math.MaxInt64)
+		txns, err := e.Transactions(w.Address(), math.MaxInt64, 0)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -140,22 +141,16 @@ func TestChainStatsSiacoins(t *testing.T) {
 	}
 	expected := explorer.ChainStats{
 		// don't compare these
-		Block:             stats.Block,
-		ValidationContext: stats.ValidationContext,
+		Block: stats.Block,
 
-		SpentSiacoinsCount:         0,
-		SpentSiafundsCount:         0,
-		NewSiacoinsCount:           1,
-		NewSiafundsCount:           0,
-		NewFileContractsCount:      0,
-		RevisedFileContractsCount:  0,
-		ResolvedFileContractsCount: 0,
-		ActiveContractCost:         types.ZeroCurrency,
-		ActiveContractCount:        0,
-		ActiveContractSize:         0,
-		TotalContractCost:          types.ZeroCurrency,
-		TotalContractSize:          0,
-		TotalRevisionVolume:        0,
+		SpentSiacoinsCount:  0,
+		SpentSiafundsCount:  0,
+		ActiveContractCost:  types.ZeroCurrency,
+		ActiveContractCount: 0,
+		ActiveContractSize:  0,
+		TotalContractCost:   types.ZeroCurrency,
+		TotalContractSize:   0,
+		TotalRevisionVolume: 0,
 	}
 	if !reflect.DeepEqual(stats, expected) {
 		t.Fatal("chainstats don't match")
@@ -185,22 +180,16 @@ func TestChainStatsSiacoins(t *testing.T) {
 		}
 		expected := explorer.ChainStats{
 			// don't compare these
-			Block:             stats.Block,
-			ValidationContext: stats.ValidationContext,
+			Block: stats.Block,
 
-			SpentSiacoinsCount:         1,
-			SpentSiafundsCount:         0,
-			NewSiacoinsCount:           3,
-			NewSiafundsCount:           0,
-			NewFileContractsCount:      0,
-			RevisedFileContractsCount:  0,
-			ResolvedFileContractsCount: 0,
-			ActiveContractCost:         types.ZeroCurrency,
-			ActiveContractCount:        0,
-			ActiveContractSize:         0,
-			TotalContractCost:          types.ZeroCurrency,
-			TotalContractSize:          0,
-			TotalRevisionVolume:        0,
+			SpentSiacoinsCount:  1,
+			SpentSiafundsCount:  0,
+			ActiveContractCost:  types.ZeroCurrency,
+			ActiveContractCount: 0,
+			ActiveContractSize:  0,
+			TotalContractCost:   types.ZeroCurrency,
+			TotalContractSize:   0,
+			TotalRevisionVolume: 0,
 		}
 		if !reflect.DeepEqual(stats, expected) {
 			t.Fatal("chainstats don't match")
@@ -291,24 +280,19 @@ func TestChainStatsContracts(t *testing.T) {
 	}
 	expected := explorer.ChainStats{
 		// don't compare these
-		Block:             stats.Block,
-		ValidationContext: stats.ValidationContext,
+		Block: stats.Block,
 
-		SpentSiacoinsCount:         2,
-		SpentSiafundsCount:         0,
-		NewSiacoinsCount:           1,
-		NewSiafundsCount:           0,
-		NewFileContractsCount:      1,
-		RevisedFileContractsCount:  0,
-		ResolvedFileContractsCount: 0,
-		ActiveContractCost:         types.Siacoins(35),
-		ActiveContractCount:        1,
-		ActiveContractSize:         0,
-		TotalContractCost:          types.Siacoins(35),
-		TotalContractSize:          0,
-		TotalRevisionVolume:        0,
+		SpentSiacoinsCount:  2,
+		SpentSiafundsCount:  0,
+		ActiveContractCost:  types.Siacoins(77),
+		ActiveContractCount: 1,
+		ActiveContractSize:  0,
+		TotalContractCost:   types.Siacoins(77),
+		TotalContractSize:   0,
+		TotalRevisionVolume: 0,
 	}
 	if !reflect.DeepEqual(stats, expected) {
+		fmt.Printf("%+v\n%+v", stats, expected)
 		t.Fatal("chainstats don't match")
 	}
 }

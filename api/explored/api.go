@@ -57,4 +57,5 @@ type ExplorerWalletBalanceResponse struct {
 type ExplorerTransactionsRequest struct {
 	Address types.Address `json:"address"`
 	Amount  int           `json:"amount"`
+	Offset  int           `json:"offset"`
 }

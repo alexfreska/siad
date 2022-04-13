@@ -18,7 +18,9 @@ type Store interface {
 	UnspentSiacoinElements(address types.Address) ([]types.ElementID, error)
 	UnspentSiafundElements(address types.Address) ([]types.ElementID, error)
 	Transaction(id types.TransactionID) (types.Transaction, error)
-	Transactions(address types.Address, amount int) ([]types.TransactionID, error)
+	Transactions(address types.Address, amount, offset int) ([]types.TransactionID, error)
+	ValidationContext(index types.ChainIndex) (context consensus.ValidationContext, err error)
+
 	CreateTransaction() error
 	Commit() error
 
@@ -32,6 +34,7 @@ type Store interface {
 	RemoveUnspentSiacoinElement(address types.Address, id types.ElementID) error
 	RemoveUnspentSiafundElement(address types.Address, id types.ElementID) error
 	AddTransaction(txn types.Transaction, addresses []types.Address, block types.ChainIndex) error
+	AddValidationContext(index types.ChainIndex, context consensus.ValidationContext) error
 }
 
 // An Explorer contains a database storing information about blocks, outputs,
@@ -52,9 +55,12 @@ func (e *Explorer) ProcessChainApplyUpdate(cau *chain.ApplyUpdate, mayCommit boo
 		return err
 	}
 
+	if err := e.db.AddValidationContext(cau.Block.Header.Index(), cau.Context); err != nil {
+		return err
+	}
+
 	stats := ChainStats{
 		Block:               cau.Block,
-		ValidationContext:   cau.Context,
 		ActiveContractCost:  e.tipStats.ActiveContractCost,
 		ActiveContractCount: e.tipStats.ActiveContractCount,
 		ActiveContractSize:  e.tipStats.ActiveContractSize,
@@ -82,7 +88,7 @@ func (e *Explorer) ProcessChainApplyUpdate(cau *chain.ApplyUpdate, mayCommit boo
 		for addr := range addrMap {
 			addrs = append(addrs, addr)
 		}
-		if err := e.db.AddTransaction(txn, addrs, stats.Block.Header.Index()); err != nil {
+		if err := e.db.AddTransaction(txn, addrs, cau.Block.Header.Index()); err != nil {
 			return err
 		}
 	}
@@ -109,9 +115,8 @@ func (e *Explorer) ProcessChainApplyUpdate(cau *chain.ApplyUpdate, mayCommit boo
 		if err := e.db.RemoveElement(elem.ID); err != nil {
 			return err
 		}
-		stats.ResolvedFileContractsCount++
 		stats.ActiveContractCount--
-		payout := elem.FileContract.MissedHostValue.Add(elem.FileContract.TotalCollateral)
+		payout := elem.FileContract.RenterOutput.Value.Add(elem.FileContract.HostOutput.Value)
 		stats.ActiveContractCost = stats.ActiveContractCost.Sub(payout)
 		stats.ActiveContractSize -= elem.FileContract.Filesize
 	}
@@ -123,7 +128,6 @@ func (e *Explorer) ProcessChainApplyUpdate(cau *chain.ApplyUpdate, mayCommit boo
 		if err := e.db.AddUnspentSiacoinElement(elem.Address, elem.ID); err != nil {
 			return err
 		}
-		stats.NewSiacoinsCount++
 	}
 	for _, elem := range cau.NewSiafundElements {
 		if err := e.db.AddSiafundElement(elem); err != nil {
@@ -132,13 +136,11 @@ func (e *Explorer) ProcessChainApplyUpdate(cau *chain.ApplyUpdate, mayCommit boo
 		if err := e.db.AddUnspentSiafundElement(elem.Address, elem.ID); err != nil {
 			return err
 		}
-		stats.NewSiafundsCount++
 	}
 	for _, elem := range cau.RevisedFileContracts {
 		if err := e.db.AddFileContractElement(elem); err != nil {
 			return err
 		}
-		stats.RevisedFileContractsCount++
 		stats.TotalContractSize += elem.FileContract.Filesize
 		stats.TotalRevisionVolume += elem.FileContract.Filesize
 	}
@@ -146,8 +148,7 @@ func (e *Explorer) ProcessChainApplyUpdate(cau *chain.ApplyUpdate, mayCommit boo
 		if err := e.db.AddFileContractElement(elem); err != nil {
 			return err
 		}
-		stats.NewFileContractsCount++
-		payout := elem.FileContract.MissedHostValue.Add(elem.FileContract.TotalCollateral)
+		payout := elem.FileContract.RenterOutput.Value.Add(elem.FileContract.HostOutput.Value)
 		stats.ActiveContractCount++
 		stats.ActiveContractCost = stats.ActiveContractCost.Add(payout)
 		stats.ActiveContractSize += elem.FileContract.Filesize
@@ -155,7 +156,7 @@ func (e *Explorer) ProcessChainApplyUpdate(cau *chain.ApplyUpdate, mayCommit boo
 		stats.TotalContractSize += elem.FileContract.Filesize
 	}
 
-	if err := e.db.AddChainStats(stats.ValidationContext.Index, stats); err != nil {
+	if err := e.db.AddChainStats(cau.Context.Index, stats); err != nil {
 		return err
 	}
 
