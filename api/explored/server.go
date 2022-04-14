@@ -173,8 +173,8 @@ func (s *server) explorerChainStatsHandler(w http.ResponseWriter, req *http.Requ
 		return
 	}
 
-	var index types.ChainIndex
-	if err := json.Unmarshal([]byte(p.ByName("index")), &index); err != nil {
+	index, err := types.ParseChainIndex(p.ByName("index"))
+	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
@@ -188,8 +188,8 @@ func (s *server) explorerChainStatsHandler(w http.ResponseWriter, req *http.Requ
 }
 
 func (s *server) explorerChainContextHandler(w http.ResponseWriter, req *http.Request, p httprouter.Params) {
-	var index types.ChainIndex
-	if err := json.Unmarshal([]byte(p.ByName("index")), &index); err != nil {
+	index, err := types.ParseChainIndex(p.ByName("index"))
+	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}

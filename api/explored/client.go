@@ -65,11 +65,7 @@ func (c *Client) ExplorerFileContractElement(id types.ElementID) (resp types.Fil
 
 // ExplorerChainStats gets stats about the block at the given index.
 func (c *Client) ExplorerChainStats(index types.ChainIndex) (resp explorer.ChainStats, err error) {
-	data, err := json.Marshal(index)
-	if err != nil {
-		return
-	}
-	err = c.c.Get(fmt.Sprintf("/api/explorer/chain/stats/%s", string(data)), &resp)
+	err = c.c.Get(fmt.Sprintf("/api/explorer/chain/stats/%s", index.String()), &resp)
 	return
 }
 
@@ -81,11 +77,7 @@ func (c *Client) ExplorerChainStatsLatest() (resp explorer.ChainStats, err error
 
 // ExplorerElementSearch gets information about a given element.
 func (c *Client) ExplorerElementSearch(id types.ElementID) (resp ExplorerSearchResponse, err error) {
-	data, err := json.Marshal(id)
-	if err != nil {
-		return
-	}
-	err = c.c.Get(fmt.Sprintf("/api/explorer/element/search/%s", string(data)), &resp)
+	err = c.c.Get(fmt.Sprintf("/api/explorer/element/search/%s", id.String()), &resp)
 	return
 }
 
@@ -156,11 +148,7 @@ func (c *Client) ExplorerBatchTransactions(addresses []ExplorerTransactionsReque
 
 // ExplorerChainContext returns the validation context at a given chain index.
 func (c *Client) ExplorerChainContext(index types.ChainIndex) (resp consensus.ValidationContext, err error) {
-	data, err := json.Marshal(index)
-	if err != nil {
-		return
-	}
-	err = c.c.Get(fmt.Sprintf("/api/explorer/chain/context/%s", string(data)), &resp)
+	err = c.c.Get(fmt.Sprintf("/api/explorer/chain/context/%s", index.String()), &resp)
 	return
 }
 
