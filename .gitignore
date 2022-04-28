@@ -1,2 +1,5 @@
 node_modules
 bin
+dev
+.DS_Store
+node_modules

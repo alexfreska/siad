@@ -134,7 +134,7 @@ func main() {
 	}
 
 	if *mine {
-		go n.mine()
+		n.m.Start()
 	}
 
 	l, err := net.Listen("tcp", *apiAddr)

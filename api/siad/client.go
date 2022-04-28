@@ -102,6 +102,24 @@ func (c *Client) SyncerConnect(addr string) (err error) {
 	return
 }
 
+// MinerStart starts the CPU miner.
+func (c *Client) MinerStart() (err error) {
+	err = c.c.Post("/api/miner/start", nil, nil)
+	return
+}
+
+// MinerStop stops the CPU miner.
+func (c *Client) MinerStop() (err error) {
+	err = c.c.Post("/api/miner/stop", nil, nil)
+	return
+}
+
+// MinerAddress sets the CPU miner reward address.
+func (c *Client) MinerAddress(addr types.Address) (err error) {
+	err = c.c.Post("/api/miner/address", MinerAddressRequest{addr}, nil)
+	return
+}
+
 // NewClient returns a client that communicates with a siad server listening on
 // the specified address.
 func NewClient(addr, password string) *Client {

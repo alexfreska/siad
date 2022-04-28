@@ -46,6 +46,13 @@ type (
 		TipState() consensus.State
 		State(index types.ChainIndex) (consensus.State, error)
 	}
+
+	// Miner manages the CPU miner.
+	Miner interface {
+		Start() error
+		Stop() error
+		Address(addr types.Address) error
+	}
 )
 
 type server struct {
@@ -53,6 +60,7 @@ type server struct {
 	s  Syncer
 	cm ChainManager
 	tp TransactionPool
+	m  Miner
 }
 
 func (s *server) consensusTipHandler(w http.ResponseWriter, req *http.Request, _ httprouter.Params) {
@@ -234,13 +242,40 @@ func (s *server) syncerConnectHandler(w http.ResponseWriter, req *http.Request, 
 	}
 }
 
+func (s *server) minerStartHandler(w http.ResponseWriter, req *http.Request, _ httprouter.Params) {
+	if err := s.m.Start(); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+}
+
+func (s *server) minerStopHandler(w http.ResponseWriter, req *http.Request, _ httprouter.Params) {
+	if err := s.m.Stop(); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+}
+
+func (s *server) minerAddressHandler(w http.ResponseWriter, req *http.Request, _ httprouter.Params) {
+	var mar MinerAddressRequest
+	if err := json.NewDecoder(req.Body).Decode(&mar); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	if err := s.m.Address(mar.Address); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+}
+
 // NewServer returns an HTTP handler that serves the siad API.
-func NewServer(cm ChainManager, s Syncer, w WalletStore, tp TransactionPool) http.Handler {
+func NewServer(cm ChainManager, s Syncer, w WalletStore, tp TransactionPool, m Miner) http.Handler {
 	srv := server{
 		cm: cm,
 		s:  s,
 		w:  w,
 		tp: tp,
+		m:  m,
 	}
 	mux := httprouter.New()
 
@@ -260,6 +295,10 @@ func NewServer(cm ChainManager, s Syncer, w WalletStore, tp TransactionPool) htt
 
 	mux.GET("/api/syncer/peers", srv.syncerPeersHandler)
 	mux.POST("/api/syncer/connect", srv.syncerConnectHandler)
+
+	mux.POST("/api/miner/start", srv.minerStartHandler)
+	mux.POST("/api/miner/stop", srv.minerStopHandler)
+	mux.POST("/api/miner/address", srv.minerAddressHandler)
 
 	return mux
 }

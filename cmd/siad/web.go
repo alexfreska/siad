@@ -36,7 +36,7 @@ func createUIHandler() http.Handler {
 }
 
 func startWeb(l net.Listener, node *node, password string) error {
-	sia := siad.NewServer(node.c, node.s, node.w, node.tp)
+	sia := siad.NewServer(node.c, node.s, node.w, node.tp, node.m)
 	api := api.AuthMiddleware(sia, password)
 	web := createUIHandler()
 	return http.Serve(l, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

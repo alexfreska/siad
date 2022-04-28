@@ -37,6 +37,8 @@ Subcommands:
     wallet
     txpool
     syncer
+    miner
+    seed
 `
 	versionUsage = rootUsage
 
@@ -118,6 +120,33 @@ List current peers.
     siac [flags] syncer [flags] connect [addr]
 
 Add the provided address as a peer.
+`
+
+	seedUsage = `Usage:
+    siac [flags] seed [flags]
+
+Generate a new seed
+`
+
+	minerUsage = `Usage:
+    siac [flags] miner [flags] [action]
+
+Actions:
+    start           start cpu miner
+    stop            stop cpu miner
+    address         set the miner address
+`
+
+	minerStartUsage = `Usage:
+    siac [flags] miner [flags] start
+`
+
+	minerStopUsage = `Usage:
+    siac [flags] miner [flags] stop
+`
+
+	minerAddressUsage = `Usage:
+    siac [flags] miner [flags] address [address]
 `
 )
 
@@ -245,6 +274,13 @@ func main() {
 	syncerPeersCmd := flagg.New("peers", syncerPeersUsage)
 	syncerConnectCmd := flagg.New("connect", syncerConnectUsage)
 
+	seedCmd := flagg.New("seed", seedUsage)
+
+	minerCmd := flagg.New("miner", minerUsage)
+	minerStartCmd := flagg.New("start", minerStartUsage)
+	minerStopCmd := flagg.New("stop", minerStopUsage)
+	minerAddressCmd := flagg.New("address", minerAddressUsage)
+
 	cmd := flagg.Parse(flagg.Tree{
 		Cmd: rootCmd,
 		Sub: []flagg.Tree{
@@ -271,6 +307,15 @@ func main() {
 				Sub: []flagg.Tree{
 					{Cmd: syncerPeersCmd},
 					{Cmd: syncerConnectCmd},
+				},
+			},
+			{Cmd: seedCmd},
+			{
+				Cmd: minerCmd,
+				Sub: []flagg.Tree{
+					{Cmd: minerStartCmd},
+					{Cmd: minerStopCmd},
+					{Cmd: minerAddressCmd},
 				},
 			},
 		},
@@ -425,5 +470,32 @@ func main() {
 		err := getClient().SyncerConnect(addr)
 		check("Couldn't connect:", err)
 		fmt.Printf("Connected to %v.\n", addr)
+
+	case seedCmd:
+		if len(args) != 0 {
+			cmd.Usage()
+			return
+		}
+		log.Println(wallet.NewSeed())
+
+	case minerCmd:
+		cmd.Usage()
+
+	case minerStartCmd:
+		err := getClient().MinerStart()
+		check("Failed start miner", err)
+
+	case minerStopCmd:
+		err := getClient().MinerStop()
+		check("Failed to stop miner", err)
+
+	case minerAddressCmd:
+		if len(args) != 1 {
+			cmd.Usage()
+			return
+		}
+		minerAddrParsed, err := types.ParseAddress(args[0])
+		check("Failed to parse address", err)
+		getClient().MinerAddress(minerAddrParsed)
 	}
 }

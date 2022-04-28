@@ -1,9 +1,7 @@
 package main
 
 import (
-	"errors"
 	"fmt"
-	"log"
 	"os"
 	"path/filepath"
 
@@ -14,6 +12,7 @@ import (
 	"go.sia.tech/siad/v2/internal/cpuminer"
 	"go.sia.tech/siad/v2/internal/p2putil"
 	"go.sia.tech/siad/v2/internal/walletutil"
+	"go.sia.tech/siad/v2/miner"
 	"go.sia.tech/siad/v2/p2p"
 	"go.sia.tech/siad/v2/txpool"
 )
@@ -23,29 +22,11 @@ type node struct {
 	tp *txpool.Pool
 	s  *p2p.Syncer
 	w  *walletutil.JSONStore
-	m  *cpuminer.CPUMiner
+	m  *miner.MiningManager
 }
 
 func (n *node) run() error {
 	return n.s.Run()
-}
-
-func (n *node) mine() {
-	for {
-		b := n.m.MineBlock()
-
-		// give it to ourselves
-		if err := n.c.AddTipBlock(b); err != nil {
-			if !errors.Is(err, chain.ErrUnknownIndex) {
-				log.Println("Couldn't add block:", err)
-			}
-			continue
-		}
-		log.Println("mined block", b.Index())
-
-		// broadcast it
-		n.s.BroadcastBlock(b)
-	}
 }
 
 func (n *node) Close() error {
@@ -87,13 +68,6 @@ func newNode(addr, dir, minerAddr string, c consensus.Checkpoint) (*node, error)
 		return nil, fmt.Errorf("couldn't resubscribe wallet at index %v: %w", walletTip, err)
 	}
 
-	minerAddrParsed, err := types.ParseAddress(minerAddr)
-	if err != nil {
-		return nil, err
-	}
-	m := cpuminer.New(tip.State, minerAddrParsed, tp)
-	cm.AddSubscriber(m, cm.Tip())
-
 	p2pDir := filepath.Join(dir, "p2p")
 	if err := os.MkdirAll(p2pDir, 0700); err != nil {
 		return nil, err
@@ -106,6 +80,15 @@ func newNode(addr, dir, minerAddr string, c consensus.Checkpoint) (*node, error)
 	if err != nil {
 		return nil, err
 	}
+
+	minerAddrParsed, err := types.ParseAddress(minerAddr)
+	if err != nil {
+		return nil, err
+	}
+
+	mcpu := cpuminer.New(tip.State, minerAddrParsed, tp)
+	cm.AddSubscriber(mcpu, cm.Tip())
+	m := miner.New(cm, mcpu, s)
 
 	return &node{
 		c:  cm,

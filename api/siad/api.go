@@ -37,3 +37,8 @@ type SyncerPeerResponse struct {
 type SyncerConnectRequest struct {
 	NetAddress string `json:"netAddress"`
 }
+
+// A MinerAddressRequest is for setting the miner's address.
+type MinerAddressRequest struct {
+	Address types.Address `json:"address"`
+}
