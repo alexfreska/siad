@@ -114,12 +114,6 @@ func (c *Client) MinerStop() (err error) {
 	return
 }
 
-// MinerAddress sets the CPU miner reward address.
-func (c *Client) MinerAddress(addr types.Address) (err error) {
-	err = c.c.Post("/api/miner/address", MinerAddressRequest{addr}, nil)
-	return
-}
-
 // NewClient returns a client that communicates with a siad server listening on
 // the specified address.
 func NewClient(addr, password string) *Client {

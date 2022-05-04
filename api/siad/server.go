@@ -51,7 +51,6 @@ type (
 	Miner interface {
 		Start() error
 		Stop() error
-		Address(addr types.Address) error
 	}
 )
 
@@ -256,18 +255,6 @@ func (s *server) minerStopHandler(w http.ResponseWriter, req *http.Request, _ ht
 	}
 }
 
-func (s *server) minerAddressHandler(w http.ResponseWriter, req *http.Request, _ httprouter.Params) {
-	var mar MinerAddressRequest
-	if err := json.NewDecoder(req.Body).Decode(&mar); err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
-	}
-	if err := s.m.Address(mar.Address); err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
-	}
-}
-
 // NewServer returns an HTTP handler that serves the siad API.
 func NewServer(cm ChainManager, s Syncer, w WalletStore, tp TransactionPool, m Miner) http.Handler {
 	srv := server{
@@ -298,7 +285,6 @@ func NewServer(cm ChainManager, s Syncer, w WalletStore, tp TransactionPool, m M
 
 	mux.POST("/api/miner/start", srv.minerStartHandler)
 	mux.POST("/api/miner/stop", srv.minerStopHandler)
-	mux.POST("/api/miner/address", srv.minerAddressHandler)
 
 	return mux
 }

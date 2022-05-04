@@ -1,4 +1,4 @@
-package miner
+package main
 
 import (
 	"errors"
@@ -10,19 +10,18 @@ import (
 )
 
 type (
-	// A Miner mines blocks.
-	Miner interface {
+	// A miner mines blocks.
+	miner interface {
 		MineBlock() types.Block
-		Address(addr types.Address) error
 	}
 
-	// A ChainManager manages blockchain state.
-	ChainManager interface {
+	// A chainManager manages blockchain state.
+	chainManager interface {
 		AddTipBlock(b types.Block) error
 	}
 
-	// A Syncer can connect to other peers and synchronize the blockchain.
-	Syncer interface {
+	// A syncer can connect to other peers and synchronize the blockchain.
+	syncer interface {
 		BroadcastBlock(block types.Block)
 	}
 )
@@ -31,9 +30,9 @@ type (
 type MiningManager struct {
 	mu   sync.Mutex
 	done chan struct{}
-	c    ChainManager
-	m    Miner
-	s    Syncer
+	c    chainManager
+	m    miner
+	s    syncer
 }
 
 func (m *MiningManager) run() {
@@ -88,13 +87,8 @@ func (m *MiningManager) Start() (err error) {
 	return
 }
 
-// Address sets the miners reward address
-func (m *MiningManager) Address(addr types.Address) (err error) {
-	return m.m.Address(addr)
-}
-
 // New returns a MiningManager initialized with the provided state.
-func New(c ChainManager, m Miner, s Syncer) *MiningManager {
+func NewMingingManager(c chainManager, m miner, s syncer) *MiningManager {
 	return &MiningManager{
 		done: nil,
 		c:    c,

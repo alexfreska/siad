@@ -12,7 +12,6 @@ import (
 	"go.sia.tech/siad/v2/internal/cpuminer"
 	"go.sia.tech/siad/v2/internal/p2putil"
 	"go.sia.tech/siad/v2/internal/walletutil"
-	"go.sia.tech/siad/v2/miner"
 	"go.sia.tech/siad/v2/p2p"
 	"go.sia.tech/siad/v2/txpool"
 )
@@ -22,7 +21,7 @@ type node struct {
 	tp *txpool.Pool
 	s  *p2p.Syncer
 	w  *walletutil.JSONStore
-	m  *miner.MiningManager
+	m  *MiningManager
 }
 
 func (n *node) run() error {
@@ -88,7 +87,7 @@ func newNode(addr, dir, minerAddr string, c consensus.Checkpoint) (*node, error)
 
 	mcpu := cpuminer.New(tip.State, minerAddrParsed, tp)
 	cm.AddSubscriber(mcpu, cm.Tip())
-	m := miner.New(cm, mcpu, s)
+	m := NewMingingManager(cm, mcpu, s)
 
 	return &node{
 		c:  cm,

@@ -127,14 +127,6 @@ func (m *CPUMiner) ProcessChainRevertUpdate(cru *chain.RevertUpdate) error {
 	return nil
 }
 
-// Address sets the miner's address
-func (m *CPUMiner) Address(addr types.Address) error {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-	m.addr = addr
-	return nil
-}
-
 // New returns a CPUMiner initialized with the provided state.
 func New(cs consensus.State, addr types.Address, tp TransactionPool) *CPUMiner {
 	return &CPUMiner{

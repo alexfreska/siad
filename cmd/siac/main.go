@@ -134,7 +134,6 @@ Generate a new seed
 Actions:
     start           start cpu miner
     stop            stop cpu miner
-    address         set the miner address
 `
 
 	minerStartUsage = `Usage:
@@ -143,10 +142,6 @@ Actions:
 
 	minerStopUsage = `Usage:
     siac [flags] miner [flags] stop
-`
-
-	minerAddressUsage = `Usage:
-    siac [flags] miner [flags] address [address]
 `
 )
 
@@ -279,7 +274,6 @@ func main() {
 	minerCmd := flagg.New("miner", minerUsage)
 	minerStartCmd := flagg.New("start", minerStartUsage)
 	minerStopCmd := flagg.New("stop", minerStopUsage)
-	minerAddressCmd := flagg.New("address", minerAddressUsage)
 
 	cmd := flagg.Parse(flagg.Tree{
 		Cmd: rootCmd,
@@ -315,7 +309,6 @@ func main() {
 				Sub: []flagg.Tree{
 					{Cmd: minerStartCmd},
 					{Cmd: minerStopCmd},
-					{Cmd: minerAddressCmd},
 				},
 			},
 		},
@@ -489,13 +482,5 @@ func main() {
 		err := getClient().MinerStop()
 		check("Failed to stop miner", err)
 
-	case minerAddressCmd:
-		if len(args) != 1 {
-			cmd.Usage()
-			return
-		}
-		minerAddrParsed, err := types.ParseAddress(args[0])
-		check("Failed to parse address", err)
-		getClient().MinerAddress(minerAddrParsed)
 	}
 }
