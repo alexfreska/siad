@@ -8,6 +8,7 @@ import (
 
 	"github.com/julienschmidt/httprouter"
 	"go.sia.tech/core/consensus"
+	"go.sia.tech/core/merkle"
 	"go.sia.tech/core/types"
 	"go.sia.tech/siad/v2/api"
 	"go.sia.tech/siad/v2/wallet"
@@ -69,6 +70,9 @@ func (s *server) consensusStateHandler(w http.ResponseWriter, req *http.Request,
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
+	// TODO: add marshalling to accumulators
+	cs.Elements = merkle.ElementAccumulator{}
+	cs.History = merkle.HistoryAccumulator{}
 	api.WriteJSON(w, cs)
 }
 

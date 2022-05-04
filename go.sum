@@ -8,6 +8,10 @@ github.com/julienschmidt/httprouter v1.3.0 h1:U0609e9tgbseu3rBINet9P48AI/D3oJs4d
 github.com/julienschmidt/httprouter v1.3.0/go.mod h1:JR6WtHb+2LUe8TCKY3cZOxFyyO8IZAc4RVcycCCAKdM=
 go.sia.tech/core v0.0.0-20220317023259-51930552ea5a h1:gmIOp7Oz0woJjKT/M1UPbF4X0MgdFPl+Cw9FAlmmhbE=
 go.sia.tech/core v0.0.0-20220317023259-51930552ea5a/go.mod h1:DzB1dUn6PzFGcWMwnuGD6fjxGGRE8vor3byCIX7pZUU=
+go.sia.tech/core v0.0.0-20220401204701-20a562a5b365 h1:fiHFnf4tPUHaHAsEZlr6FefIfcc41prT8YF6vMx+DxU=
+go.sia.tech/core v0.0.0-20220401204701-20a562a5b365/go.mod h1:DzB1dUn6PzFGcWMwnuGD6fjxGGRE8vor3byCIX7pZUU=
+go.sia.tech/core v0.0.0-20220430025018-044156050778 h1:/+AII5ZMww4+jtJn/FJso+WQnNvp/1NBfkVBqboyscc=
+go.sia.tech/core v0.0.0-20220430025018-044156050778/go.mod h1:DzB1dUn6PzFGcWMwnuGD6fjxGGRE8vor3byCIX7pZUU=
 go.sia.tech/core v0.0.0-20220503195635-4e8b29eaae6b h1:lhhXaJh97UFICmjPqmn2cDTB2qFtJ8pLkuXl8M+Xz/o=
 go.sia.tech/core v0.0.0-20220503195635-4e8b29eaae6b/go.mod h1:DzB1dUn6PzFGcWMwnuGD6fjxGGRE8vor3byCIX7pZUU=
 golang.org/x/crypto v0.0.0-20210616213533-5ff15b29337e/go.mod h1:GvvjBRRGRdwPK5ydBHafDWAxML/pGHZbMvKqRZ5+Abc=

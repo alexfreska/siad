@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log"
 	"math"
@@ -48,6 +49,7 @@ Actions:
     addresses       list wallet addresses
     balance         view current balance
     transactions    list wallet-related transactions
+    send            send siacoin
     sign            sign a transaction
 `
 
@@ -78,6 +80,12 @@ List transactions relevant to the wallet.
 
 Signs all wallet-controlled inputs of the provided JSON-encoded transaction.
 The result is written to a new file.
+`
+
+	walletSendUsage = `Usage:
+    siac [flags] wallet [flags] send [sc] [dest]
+
+Send siacoin to destination address.
 `
 
 	txpoolUsage = `Usage:
@@ -167,21 +175,18 @@ func writeTxn(filename string, txn types.Transaction) {
 	check("Could not write transaction to disk", err)
 }
 
-func signTxn(txn *types.Transaction) error {
-	c := getClient()
-
-	cs, err := c.ConsensusTipState()
+func signTxn(client *siad.Client, seed wallet.Seed, txn *types.Transaction) error {
+	cs, err := client.ConsensusTipState()
 	if err != nil {
 		return err
 	}
 	sigHash := cs.InputSigHash(*txn)
-
-	seed := getSeed()
-	for _, in := range txn.SiacoinInputs {
-		if info, err := c.WalletAddressInfo(in.Parent.Address); err == nil {
-			in.Signatures = append(in.Signatures, seed.PrivateKey(info.Index).SignHash(sigHash))
+	for i := range txn.SiacoinInputs {
+		if info, err := client.WalletAddressInfo(txn.SiacoinInputs[i].Parent.Address); err == nil {
+			txn.SiacoinInputs[i].Signatures = append(txn.SiacoinInputs[i].Signatures, seed.PrivateKey(info.Index).SignHash(sigHash))
 		}
 	}
+
 	return nil
 }
 
@@ -236,6 +241,7 @@ func main() {
 	walletTransactionsCmd := flagg.New("transactions", walletTransactionsUsage)
 	walletSignCmd := flagg.New("sign", walletSignUsage)
 	walletSignCmd.BoolVar(&broadcast, "broadcast", false, "immediately broadcast the transaction")
+	walletSendCmd := flagg.New("send", walletSendUsage)
 
 	txpoolCmd := flagg.New("txpool", txpoolUsage)
 	txpoolBroadcastCmd := flagg.New("broadcast", txpoolBroadcastUsage)
@@ -257,6 +263,7 @@ func main() {
 					{Cmd: walletBalanceCmd},
 					{Cmd: walletTransactionsCmd},
 					{Cmd: walletSignCmd},
+					{Cmd: walletSendCmd},
 				},
 			},
 			{
@@ -338,14 +345,14 @@ func main() {
 			cmd.Usage()
 			return
 		}
-		txns, err := getClient().WalletTransactions(time.Time{}, 0)
+		txns, err := getClient().WalletTransactions(time.Time{}, 10)
 		check("Couldn't get transactions:", err)
 
 		w := makeTabWriter()
 		defer w.Flush()
-		fmt.Fprintf(w, "%v\n", "ID")
+		fmt.Fprintf(w, "%v\t%v\t%v\t%v\n", "ID", "In (SC)", "Out (SC)", "Time")
 		for _, txn := range txns {
-			fmt.Fprintf(w, "%v\n", txn.ID)
+			fmt.Fprintf(w, "%v\t%v\t%v\t%v\n", txn.ID, txn.Inflow, txn.Outflow, txn.Timestamp)
 		}
 
 	case walletSignCmd:
@@ -355,10 +362,12 @@ func main() {
 		}
 
 		txn := readTxn(args[0])
-		err := signTxn(&txn)
+		seed := getSeed()
+		client := getClient()
+		err := signTxn(client, seed, &txn)
 		check("failed to sign transaction:", err)
 		if broadcast {
-			err = getClient().TxpoolBroadcast(txn, nil)
+			err = client.TxpoolBroadcast(txn, nil)
 			check("failed to broadcast transaction:", err)
 			fmt.Println("Signed and broadcast transaction.")
 		} else {
@@ -367,6 +376,20 @@ func main() {
 			writeTxn(signedPath, txn)
 			fmt.Printf("Wrote signed transaction to %v.\n", signedPath)
 		}
+	case walletSendCmd:
+		if len(args) != 2 {
+			cmd.Usage()
+			return
+		}
+		client := getClient()
+		amountParsed, err := types.ParseCurrency(args[0])
+		check("failed to parse siacoin amount", err)
+		destAddrParsed, err := types.ParseAddress(args[1])
+		check("Failed to parse destination address", err)
+		seed := getSeed()
+		txn, err := sendSiacoin(client, seed, amountParsed, destAddrParsed)
+		check("failed to send siacoin", err)
+		fmt.Printf("Sent %v, fee %v\n", amountParsed.String(), txn.MinerFee.String())
 
 	case txpoolCmd:
 		cmd.Usage()
@@ -426,4 +449,113 @@ func main() {
 		check("Couldn't connect:", err)
 		fmt.Printf("Connected to %v.\n", addr)
 	}
+}
+
+// sendSiacoin sends siacoin to the destination address.
+func sendSiacoin(client *siad.Client, seed wallet.Seed, amount types.Currency, dest types.Address) (types.Transaction, error) {
+	txn := types.Transaction{
+		SiacoinOutputs: []types.SiacoinOutput{{Value: amount, Address: dest}},
+	}
+	if err := fundAndSign(client, seed, &txn); err != nil {
+		return txn, err
+	}
+	if err := client.TxpoolBroadcast(txn, nil); err != nil {
+		return txn, err
+	}
+	return txn, nil
+}
+
+// fundAndSign funds and signs the provided transaction, adding a change output
+// if necessary. Currently only funds siacoin.
+func fundAndSign(client *siad.Client, seed wallet.Seed, txn *types.Transaction) error {
+	var amount types.Currency
+	for _, sco := range txn.SiacoinOutputs {
+		amount = amount.Add(sco.Value)
+	}
+	amount = amount.Add(txn.MinerFee)
+	for _, sci := range txn.SiacoinInputs {
+		amount = amount.Sub(sci.Parent.Value)
+	}
+
+	err := fundSiacoins(client, txn, seed, amount)
+	if err != nil {
+		return err
+	}
+	err = signTxn(client, seed, txn)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+// fundSiacoins adds siacoins inputs worth at least the requested amount to the
+// provided transaction. A change output is also added if necessary.
+func fundSiacoins(client *siad.Client, txn *types.Transaction, seed wallet.Seed, amount types.Currency) error {
+	if amount.IsZero() {
+		return nil
+	}
+
+	vc, err := client.ConsensusTip()
+	if err != nil {
+		return err
+	}
+	pool, err := client.TxpoolTransactions()
+	if err != nil {
+		return err
+	}
+	utxos, err := client.WalletUTXOs()
+	if err != nil {
+		return err
+	}
+
+	// avoid reusing any inputs currently in the transaction pool
+	inPool := make(map[types.ElementID]bool)
+	for _, ptxn := range pool {
+		for _, in := range ptxn.SiacoinInputs {
+			inPool[in.Parent.ID] = true
+		}
+	}
+
+	var outputSum types.Currency
+	var fundingElements []types.SiacoinElement
+	for _, sce := range utxos.Siacoins {
+		if inPool[sce.ID] || vc.Height < sce.MaturityHeight {
+			continue
+		}
+		fundingElements = append(fundingElements, sce)
+		outputSum = outputSum.Add(sce.Value)
+		if outputSum.Cmp(amount) >= 0 {
+			break
+		}
+	}
+	if outputSum.Cmp(amount) < 0 {
+		return errors.New("insufficient balance")
+	} else if outputSum.Cmp(amount) > 0 {
+		index, err := client.WalletSeedIndex()
+		if err != nil {
+			return err
+		}
+		// generate a change address
+		info := wallet.AddressInfo{
+			Index:       index,
+			Description: "change addr for " + txn.ID().String(),
+		}
+		addr := types.StandardAddress(seed.PublicKey(info.Index))
+		txn.SiacoinOutputs = append(txn.SiacoinOutputs, types.SiacoinOutput{
+			Value:   outputSum.Sub(amount),
+			Address: addr,
+		})
+	}
+
+	for _, sce := range fundingElements {
+		info, err := client.WalletAddressInfo(sce.Address)
+		if err != nil {
+			return err
+		}
+		txn.SiacoinInputs = append(txn.SiacoinInputs, types.SiacoinInput{
+			Parent:      sce,
+			SpendPolicy: types.PolicyPublicKey(seed.PublicKey(info.Index)),
+		})
+	}
+	return nil
 }
